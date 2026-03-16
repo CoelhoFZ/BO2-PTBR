@@ -14,6 +14,13 @@
     Repository: https://github.com/CoelhoFZ/BO2-PTBR
 #>
 
+param(
+    [ValidateSet('Menu','InstallText','InstallDubbing','InstallBoth','UninstallText','UninstallDubbing','UninstallAll','Status')]
+    [string]$Action = 'Menu',
+    [switch]$Silent,
+    [switch]$Force
+)
+
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
@@ -25,6 +32,8 @@ $Script:RepoOwner = "CoelhoFZ"
 $Script:RepoName  = "BO2-PTBR"
 $Script:BaseUrl   = "https://github.com/$RepoOwner/$RepoName/releases/latest/download"
 $Script:DiscordUrl = "https://discord.gg/bfFdyJ3gEj"
+$Script:Silent = [bool]$Silent
+$Script:Force  = [bool]$Force
 
 # ============================================================================
 # Language Detection
@@ -590,9 +599,25 @@ function Show-SubMenu {
 }
 
 function Wait-Enter {
+    if ($Script:Silent) { return }
     Write-C ""
     Write-C "  $(T 'press_enter')" DarkGray
     $null = Read-Host
+}
+
+function Confirm-YesNo {
+    param(
+        [string]$Prompt,
+        [bool]$DefaultYes = $false
+    )
+
+    if ($Script:Force) { return $true }
+    if ($Script:Silent) { return $DefaultYes }
+
+    Write-C "  $Prompt " Cyan -NoNewline
+    $ans = Read-Host
+    if ([string]::IsNullOrWhiteSpace($ans)) { return $DefaultYes }
+    return ($ans -match '^[SsYy]')
 }
 
 # ============================================================================
@@ -610,18 +635,27 @@ function Request-Elevation {
 
     try {
         $scriptUrl = "$Script:BaseUrl/install.ps1"
+        $elevArgs = ''
+        if ($Action -and $Action -ne 'Menu') { $elevArgs += " -Action '$Action'" }
+        if ($Script:Silent) { $elevArgs += ' -Silent' }
+        if ($Script:Force)  { $elevArgs += ' -Force' }
         $cmd = @"
 Set-ExecutionPolicy Bypass -Scope Process -Force
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+`$scriptContent = `$null
 try {
-    iex (irm '$scriptUrl' -TimeoutSec 30)
+    `$scriptContent = irm '$scriptUrl' -TimeoutSec 30
 } catch {
     try {
-        iex ((iwr -UseBasicParsing '$scriptUrl' -TimeoutSec 30).Content)
+        `$scriptContent = (iwr -UseBasicParsing '$scriptUrl' -TimeoutSec 30).Content
     } catch {
-        iex (curl.exe -fsSL '$scriptUrl' | Out-String)
+        `$scriptContent = (curl.exe -fsSL '$scriptUrl' | Out-String)
     }
 }
+
+`$sb = [ScriptBlock]::Create(`$scriptContent)
+& `$sb$elevArgs
 "@
         Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"$cmd`"" -Verb RunAs
 
@@ -953,9 +987,7 @@ function Install-ZombiesText {
     # Check if already installed
     if (Test-ZombiesTextInstalled) {
         Write-Warn (T 'already_installed')
-        Write-C "  " -NoNewline
-        $confirm = Read-Host
-        if ($confirm -notmatch '^[SsYy]') { return }
+        if (-not (Confirm-YesNo -Prompt (T 'already_installed'))) { return }
         Write-C ""
     }
 
@@ -1005,9 +1037,7 @@ function Install-ZombiesText {
     } else {
         Write-Warn (T 'checksum_missing')
         Write-Warn "  SHA256: $localHash"
-        Write-C "  $(T 'checksum_continue') " Cyan -NoNewline
-        $continueWithoutChecksum = Read-Host
-        if ($continueWithoutChecksum -notmatch '^[SsYy]') {
+        if (-not (Confirm-YesNo -Prompt (T 'checksum_continue'))) {
             Remove-Item $tempZip -Force -ErrorAction SilentlyContinue
             return
         }
@@ -1121,9 +1151,7 @@ function Install-ZombiesDubbing {
     Write-Warn (T 'dub_space_warn')
     Write-Info "  Jogo: livre $((Format-Size $gameSpace.Free)) em $($gameSpace.Root)"
     Write-Info "  TEMP: livre $((Format-Size $tempSpace.Free)) em $($tempSpace.Root)"
-    Write-C "  " -NoNewline
-    $confirm = Read-Host
-    if ($confirm -notmatch '^[SsYy]') { return }
+    if (-not (Confirm-YesNo -Prompt (T 'dub_space_warn'))) { return }
     Write-C ""
 
     # Backup dos arquivos originais que serao substituidos
@@ -1159,9 +1187,7 @@ function Install-ZombiesDubbing {
     $checksumMap = Get-ChecksumMap -BaseUrl $Script:BaseUrl
     if ($checksumMap.Count -eq 0) {
         Write-Warn (T 'checksum_missing')
-        Write-C "  $(T 'checksum_continue') " Cyan -NoNewline
-        $continueWithoutChecksum = Read-Host
-        if ($continueWithoutChecksum -notmatch '^[SsYy]') { return }
+        if (-not (Confirm-YesNo -Prompt (T 'checksum_continue'))) { return }
     }
 
     $soundRoot = [System.IO.Path]::GetFullPath($soundDir)
@@ -1526,9 +1552,7 @@ function Show-UninstallMenu {
                 return
             }
             Write-Warn (T 'confirm_uninstall')
-            Write-C "  " -NoNewline
-            $c = Read-Host
-            if ($c -notmatch '^[SsYy]') { Write-Info (T 'uninstall_cancelled'); Wait-Enter; return }
+            if (-not (Confirm-YesNo -Prompt (T 'confirm_uninstall'))) { Write-Info (T 'uninstall_cancelled'); Wait-Enter; return }
             $t6 = Get-T6StoragePath
             Write-C ""; Write-Info (T 'removing'); Write-C ""
             Remove-TextFiles -t6Path $t6
@@ -1553,9 +1577,7 @@ function Show-UninstallMenu {
                 return
             }
             Write-Warn (T 'confirm_uninstall')
-            Write-C "  " -NoNewline
-            $c = Read-Host
-            if ($c -notmatch '^[SsYy]') { Write-Info (T 'uninstall_cancelled'); Wait-Enter; return }
+            if (-not (Confirm-YesNo -Prompt (T 'confirm_uninstall'))) { Write-Info (T 'uninstall_cancelled'); Wait-Enter; return }
             $t6 = Get-T6StoragePath
             Write-C ""; Write-Info (T 'removing'); Write-C ""
             Remove-DubbingFiles
@@ -1574,9 +1596,7 @@ function Show-UninstallMenu {
         }
         "3" {
             Write-Warn (T 'confirm_uninstall')
-            Write-C "  " -NoNewline
-            $c = Read-Host
-            if ($c -notmatch '^[SsYy]') { Write-Info (T 'uninstall_cancelled'); Wait-Enter; return }
+            if (-not (Confirm-YesNo -Prompt (T 'confirm_uninstall'))) { Write-Info (T 'uninstall_cancelled'); Wait-Enter; return }
             $t6 = Get-T6StoragePath
             Write-C ""; Write-Info (T 'removing'); Write-C ""
             Remove-TextFiles    -t6Path $t6
@@ -1687,6 +1707,29 @@ function Start-MainLoop {
         Write-C ""
         Write-Warn ((T 'update_available') -f $Script:Version, $latestVer)
         Write-Info (T 'update_hint')
+    }
+
+    if ($Action -ne 'Menu') {
+        switch ($Action) {
+            'InstallText'     { Install-ZombiesText }
+            'InstallDubbing'  { Install-ZombiesDubbing }
+            'InstallBoth'     { Install-ZombiesText; Install-ZombiesDubbing }
+            'UninstallText'   {
+                if (-not $Script:Force) { Write-Warn "Use -Force para executar desinstalacao em modo Action."; return }
+                Show-Banner; $t6 = Get-T6StoragePath; Remove-TextFiles -t6Path $t6; if (-not (Test-ZombiesDubbingInstalled)) { if (Test-PlutoniumRunning) { Stop-PlutoniumLauncher }; [void](Restore-Launcher) }
+            }
+            'UninstallDubbing'{
+                if (-not $Script:Force) { Write-Warn "Use -Force para executar desinstalacao em modo Action."; return }
+                Show-Banner; Remove-DubbingFiles; if (-not (Test-ZombiesTextInstalled)) { if (Test-PlutoniumRunning) { Stop-PlutoniumLauncher }; [void](Restore-Launcher) }
+            }
+            'UninstallAll'    {
+                if (-not $Script:Force) { Write-Warn "Use -Force para executar desinstalacao em modo Action."; return }
+                Show-Banner; $t6 = Get-T6StoragePath; Remove-TextFiles -t6Path $t6; Remove-DubbingFiles; if (Test-PlutoniumRunning) { Stop-PlutoniumLauncher }; [void](Restore-Launcher)
+            }
+            'Status'          { Show-Status }
+            default           { Write-Warn (T 'invalid') }
+        }
+        return
     }
 
     while ($true) {

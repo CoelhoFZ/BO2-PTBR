@@ -47,6 +47,26 @@ Tradução completa para Português Brasileiro do Black Ops II Zombies no [Pluto
 
 👉 [Ver todos os releases e changelogs](https://github.com/CoelhoFZ/BO2-PTBR/releases)
 
+### Modo Automacao (sem menu)
+
+Para suporte remoto, scripts ou reinstalacao rapida, voce pode executar o instalador em modo direto:
+
+```powershell
+# Instalar textos
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$s = curl.exe -fsSL https://github.com/CoelhoFZ/BO2-PTBR/releases/latest/download/install.ps1 | Out-String; & ([ScriptBlock]::Create($s)) -Action InstallText -Silent -Force"
+
+# Instalar dublagem
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$s = curl.exe -fsSL https://github.com/CoelhoFZ/BO2-PTBR/releases/latest/download/install.ps1 | Out-String; & ([ScriptBlock]::Create($s)) -Action InstallDubbing -Silent -Force"
+
+# Instalar textos + dublagem
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$s = curl.exe -fsSL https://github.com/CoelhoFZ/BO2-PTBR/releases/latest/download/install.ps1 | Out-String; & ([ScriptBlock]::Create($s)) -Action InstallBoth -Silent -Force"
+
+# Ver status
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$s = curl.exe -fsSL https://github.com/CoelhoFZ/BO2-PTBR/releases/latest/download/install.ps1 | Out-String; & ([ScriptBlock]::Create($s)) -Action Status -Silent"
+```
+
+Opcoes de `-Action`: `InstallText`, `InstallDubbing`, `InstallBoth`, `UninstallText`, `UninstallDubbing`, `UninstallAll`, `Status`.
+
 ---
 
 ## Requisitos
