@@ -131,6 +131,13 @@ Se preferir instalar manualmente:
 | Alguns textos ainda em inglês | Algumas strings do engine não podem ser sobrescritas |
 | Script não executa | Execute `Set-ExecutionPolicy Bypass -Scope Process` primeiro |
 
+## Notas
+
+- O instalador detecta automaticamente o idioma do sistema (PT-BR, EN, ES).
+- As traduções em espanhol do instalador não utilizam acentos propositalmente, para compatibilidade máxima com consoles e terminais que não suportam caracteres especiais.
+- O script verifica automaticamente se há atualizações disponíveis ao iniciar.
+- Downloads são verificados via SHA256 quando o arquivo `checksums.sha256` está disponível no release.
+
 ## Comunidade
 
 Entre no nosso Discord: https://discord.gg/bfFdyJ3gEj

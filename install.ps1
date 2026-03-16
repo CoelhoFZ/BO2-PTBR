@@ -10,7 +10,7 @@
 
 .NOTES
     Author: CoelhoFZ
-    Version: 1.0.0
+    Version: 1.2.0
     Repository: https://github.com/CoelhoFZ/BO2-PTBR
 #>
 
@@ -20,7 +20,7 @@ $ProgressPreference = 'SilentlyContinue'
 # ============================================================================
 # Configuration
 # ============================================================================
-$Script:Version   = "1.1.0"
+$Script:Version   = "1.2.0"
 $Script:RepoOwner = "CoelhoFZ"
 $Script:RepoName  = "BO2-PTBR"
 $Script:BaseUrl   = "https://github.com/$RepoOwner/$RepoName/releases/latest/download"
@@ -388,6 +388,26 @@ function T {
             pt = "Launcher mantido ativo (dublagem ainda instalada)"
             es = "Launcher mantenido activo (doblaje aun instalado)"
         }
+        "update_available" = @{
+            en = "Update available! v{0} -> v{1}"
+            pt = "Atualizacao disponivel! v{0} -> v{1}"
+            es = "Actualizacion disponible! v{0} -> v{1}"
+        }
+        "update_hint" = @{
+            en = "Run the install command again to update."
+            pt = "Execute o comando de instalacao novamente para atualizar."
+            es = "Ejecute el comando de instalacion nuevamente para actualizar."
+        }
+        "integrity_ok" = @{
+            en = "Integrity verified (SHA256)"
+            pt = "Integridade verificada (SHA256)"
+            es = "Integridad verificada (SHA256)"
+        }
+        "integrity_fail" = @{
+            en = "Integrity check FAILED! The file may be corrupted. Try again."
+            pt = "Verificacao de integridade FALHOU! O arquivo pode estar corrompido. Tente novamente."
+            es = "Verificacion de integridad FALLO! El archivo puede estar corrupto. Intente nuevamente."
+        }
     }
 
     $entry = $translations[$Key]
@@ -708,6 +728,22 @@ function Stop-PlutoniumLauncher {
     Start-Sleep -Seconds 2
 }
 
+function Test-UpdateAvailable {
+    try {
+        $apiUrl = "https://api.github.com/repos/$Script:RepoOwner/$Script:RepoName/releases/latest"
+        $resp = Invoke-RestMethod -Uri $apiUrl -Method Get -Headers @{"User-Agent"="BO2-PTBR-Installer/$Script:Version"} -TimeoutSec 5 -ErrorAction Stop
+        $latest = ($resp.tag_name -replace '^v', '').Trim()
+        if (-not $latest -or $latest -eq $Script:Version) { return $null }
+        $cur = $Script:Version.Split('.') | ForEach-Object { [int]$_ }
+        $new = $latest.Split('.') | ForEach-Object { [int]$_ }
+        for ($i = 0; $i -lt [Math]::Min($cur.Count, $new.Count); $i++) {
+            if ($new[$i] -gt $cur[$i]) { return $latest }
+            if ($new[$i] -lt $cur[$i]) { return $null }
+        }
+    } catch { }
+    return $null
+}
+
 # ============================================================================
 # Install Functions
 # ============================================================================
@@ -775,6 +811,34 @@ function Install-ZombiesText {
     }
 
     Write-OK (T 'download_ok')
+
+    # SHA256 integrity check
+    $localHash = (Get-FileHash $tempZip -Algorithm SHA256).Hash
+    try {
+        $checksumUrl = "$Script:BaseUrl/checksums.sha256"
+        $wc2 = New-Object System.Net.WebClient
+        $wc2.Headers.Add("User-Agent", "Mozilla/5.0")
+        $checksumContent = $wc2.DownloadString($checksumUrl)
+        $expectedHash = ($checksumContent -split "`n" |
+            Where-Object { $_ -match $zipName } |
+            ForEach-Object { ($_ -split '\s+')[0].Trim().ToUpper() } |
+            Select-Object -First 1)
+        if ($expectedHash) {
+            if ($localHash -eq $expectedHash) {
+                Write-OK (T 'integrity_ok')
+            } else {
+                Write-Err (T 'integrity_fail')
+                Write-Warn "  Expected: $expectedHash"
+                Write-Warn "  Got:      $localHash"
+                Remove-Item $tempZip -Force -ErrorAction SilentlyContinue
+                Wait-Enter
+                return
+            }
+        }
+    } catch {
+        # checksums.sha256 not available in this release — skip verification
+        Write-Info "SHA256: $localHash"
+    }
 
     # Extract
     Write-Info (T 'extracting')
@@ -1255,6 +1319,14 @@ function Start-MainLoop {
 
     Write-OK (T 'admin_ok')
 
+    # Check for updates (non-blocking)
+    $latestVer = Test-UpdateAvailable
+    if ($latestVer) {
+        Write-C ""
+        Write-Warn ((T 'update_available') -f $Script:Version, $latestVer)
+        Write-Info (T 'update_hint')
+    }
+
     while ($true) {
         Show-MainMenu
 
@@ -1265,36 +1337,9 @@ function Start-MainLoop {
 
         switch ($choice.Trim()) {
             "1" {
-                # Zombies sub-menu
-                Show-SubMenu
-                Write-C "  $(T 'choose'): " Cyan -NoNewline
-                $sub = Read-Host
-
-                Show-Banner
-
-                switch ($sub.Trim()) {
-                    "1" {
-                        # Dublagem + Textos (dubbing coming soon)
-                        Write-Warn (T 'coming_soon')
-                        Write-C ""
-                        Write-Info (T 'dub_not_ready')
-                        Write-C "  " -NoNewline
-                        $fallback = Read-Host
-                        if ($fallback -match '^[SsYy]') {
-                            Show-Banner
-                            Install-ZombiesText
-                        }
-                    }
-                    "2" {
-                        Write-Warn (T 'coming_soon')
-                        Wait-Enter
-                    }
-                    "3" {
-                        Install-ZombiesText
-                    }
-                    "0" { }
-                    default { Write-Warn (T 'invalid') }
-                }
+                # Zombies — instala textos diretamente
+                # (submenu sera reativado quando dublagem estiver disponivel)
+                Install-ZombiesText
             }
             "2" {
                 Write-Warn (T 'coming_soon')
