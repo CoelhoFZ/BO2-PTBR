@@ -433,6 +433,21 @@ function T {
             pt = "A pasta do jogo Black Ops 2 e necessaria para a dublagem."
             es = "La carpeta del juego Black Ops 2 es necesaria para el doblaje."
         }
+        "checksum_missing" = @{
+            en = "Checksums are unavailable for this release."
+            pt = "Checksums indisponiveis para este release."
+            es = "Checksums no disponibles para este release."
+        }
+        "checksum_continue" = @{
+            en = "Continue without integrity verification? [Y/N]"
+            pt = "Continuar sem verificacao de integridade? [S/N]"
+            es = "Continuar sin verificacion de integridad? [S/N]"
+        }
+        "disk_space_fail" = @{
+            en = "Insufficient disk space for dubbing installation."
+            pt = "Espaco em disco insuficiente para instalar a dublagem."
+            es = "Espacio en disco insuficiente para instalar el doblaje."
+        }
         "sub_1" = @{
             en = "Text + Dubbing (PT-BR voices)"
             pt = "Textos + Dublagem (vozes PT-BR)"
@@ -734,10 +749,31 @@ function Test-ZombiesTextInstalled {
 function Test-ZombiesDubbingInstalled {
     $gamePath = Get-BO2GamePath
     if (-not $gamePath) { return $false }
+
+    $soundDir = Join-Path $gamePath "sound"
     $backupDir = Join-Path $gamePath "sound_backup_original"
-    if (-not (Test-Path $backupDir)) { return $false }
-    $files = Get-ChildItem $backupDir -File -ErrorAction SilentlyContinue
-    return ($files.Count -gt 0)
+    $manifestPath = Join-Path $backupDir "ptbr_dubbing_manifest.txt"
+
+    if ((Test-Path $manifestPath) -and (Test-Path $soundDir)) {
+        $manifestEntries = Get-Content $manifestPath -ErrorAction SilentlyContinue | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        if ($manifestEntries.Count -gt 0) {
+            foreach ($rel in $manifestEntries | Select-Object -First 10) {
+                if (Test-Path (Join-Path $soundDir $rel.Trim())) { return $true }
+            }
+        }
+    }
+
+    if (Test-Path $backupDir) {
+        $files = Get-ChildItem $backupDir -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne 'ptbr_dubbing_manifest.txt' }
+        if ($files.Count -gt 0) { return $true }
+    }
+
+    $markers = @('zmb_buried.english.sabs','zmb_common.english.sabs','zmb_tomb.english.sabs','zmb_tomb.all.sabs')
+    $present = 0
+    foreach ($marker in $markers) {
+        if (Test-Path (Join-Path $soundDir $marker)) { $present++ }
+    }
+    return ($present -ge 4)
 }
 
 function Test-LauncherPatched {
@@ -779,6 +815,112 @@ function Test-UpdateAvailable {
     return $null
 }
 
+function Get-DubbingBackupFileNames {
+    return @(
+        'zmb_alcatraz_load.english.sabs','zmb_alcatraz.english.sabs',
+        'zmb_buried_load.english.sabs','zmb_buried.english.sabs',
+        'zmb_classic_transit.english.sabs','zmb_common.english.sabs',
+        'zmb_highrise.english.sabs','zmb_nuked_real.english.sabs',
+        'zmb_returned_tranzit.english.sabs','zmb_rt_load.english.sabs',
+        'zmb_tomb_load.english.sabs','zmb_tomb.all.sabs','zmb_tomb.english.sabs'
+    )
+}
+
+function Format-Size {
+    param([Int64]$Bytes)
+    if ($Bytes -ge 1GB) { return ('{0:N1} GB' -f ($Bytes / 1GB)) }
+    if ($Bytes -ge 1MB) { return ('{0:N1} MB' -f ($Bytes / 1MB)) }
+    return ('{0} B' -f $Bytes)
+}
+
+function Test-FreeSpaceForPath {
+    param(
+        [Parameter(Mandatory=$true)][string]$Path,
+        [Parameter(Mandatory=$true)][Int64]$RequiredBytes
+    )
+
+    $resolved = Resolve-Path $Path -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Path
+    if (-not $resolved) { $resolved = $Path }
+    $root = [System.IO.Path]::GetPathRoot($resolved)
+    if (-not $root) {
+        return @{ Ok = $false; Root = $null; Free = 0L; Required = $RequiredBytes }
+    }
+
+    $driveName = $root.TrimEnd('\\').TrimEnd(':')
+    $drive = Get-PSDrive -Name $driveName -PSProvider FileSystem -ErrorAction SilentlyContinue
+    if (-not $drive) {
+        return @{ Ok = $false; Root = $root; Free = 0L; Required = $RequiredBytes }
+    }
+
+    $freeBytes = [Int64]$drive.Free
+    return @{ Ok = ($freeBytes -ge $RequiredBytes); Root = $root; Free = $freeBytes; Required = $RequiredBytes }
+}
+
+function Get-ChecksumMap {
+    param([string]$BaseUrl)
+
+    $map = @{}
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $wc = New-Object System.Net.WebClient
+        $wc.Headers.Add('User-Agent', 'Mozilla/5.0')
+        $content = $wc.DownloadString("$BaseUrl/checksums.sha256")
+        foreach ($line in ($content -split "`n")) {
+            if ($line -match '^\s*([A-Fa-f0-9]{64})\s+(.+?)\s*$') {
+                $hash = $matches[1].ToUpper()
+                $name = [System.IO.Path]::GetFileName($matches[2].Trim())
+                if ($name) { $map[$name] = $hash }
+            }
+        }
+    } catch { }
+    return $map
+}
+
+function Invoke-DownloadWithRetry {
+    param(
+        [Parameter(Mandatory=$true)][string]$Url,
+        [Parameter(Mandatory=$true)][string]$OutFile,
+        [int]$MaxRetries = 3,
+        [int]$TimeoutSec = 120
+    )
+
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+    for ($attempt = 1; $attempt -le $MaxRetries; $attempt++) {
+        try { Remove-Item $OutFile -Force -ErrorAction SilentlyContinue } catch { }
+
+        try {
+            $wc = New-Object System.Net.WebClient
+            $wc.Headers.Add('User-Agent', 'Mozilla/5.0')
+            $wc.DownloadFile($Url, $OutFile)
+            if ((Test-Path $OutFile) -and (Get-Item $OutFile).Length -gt 0) { return $true }
+        } catch { }
+
+        if (Get-Command Start-BitsTransfer -ErrorAction SilentlyContinue) {
+            try {
+                Start-BitsTransfer -Source $Url -Destination $OutFile -Description 'BO2 PT-BR Installer Download' -ErrorAction Stop
+                if ((Test-Path $OutFile) -and (Get-Item $OutFile).Length -gt 0) { return $true }
+            } catch { }
+        }
+
+        try {
+            Add-Type -AssemblyName System.Net.Http -ErrorAction SilentlyContinue
+            $hc = New-Object System.Net.Http.HttpClient
+            $hc.Timeout = [TimeSpan]::FromSeconds($TimeoutSec)
+            $bytes = $hc.GetByteArrayAsync($Url).Result
+            [System.IO.File]::WriteAllBytes($OutFile, $bytes)
+            if ((Test-Path $OutFile) -and (Get-Item $OutFile).Length -gt 0) { return $true }
+        } catch { }
+
+        if ($attempt -lt $MaxRetries) {
+            Write-Warn "Tentativa $attempt/$MaxRetries falhou. Repetindo download..."
+            Start-Sleep -Seconds ([Math]::Min(10, 2 * $attempt))
+        }
+    }
+
+    return $false
+}
+
 # ============================================================================
 # Install Functions
 # ============================================================================
@@ -815,28 +957,14 @@ function Install-ZombiesText {
 
     Write-Info "$(T 'downloading') $zipName..."
 
-    try {
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        $webClient = New-Object System.Net.WebClient
-        $webClient.Headers.Add("User-Agent", "Mozilla/5.0")
-        $webClient.DownloadFile($zipUrl, $tempZip)
-    } catch {
-        # Fallback download method
-        try {
-            Add-Type -AssemblyName System.Net.Http -ErrorAction SilentlyContinue
-            $httpClient = New-Object System.Net.Http.HttpClient
-            $httpClient.Timeout = [TimeSpan]::FromSeconds(120)
-            $bytes = $httpClient.GetByteArrayAsync($zipUrl).Result
-            [System.IO.File]::WriteAllBytes($tempZip, $bytes)
-        } catch {
-            Write-Err "$(T 'download_fail'): $zipName"
-            Write-Warn "  URL: $zipUrl"
-            Write-Warn "  $(T 'connection_hint')"
-            Write-C ""
-            Write-Info "Discord: $Script:DiscordUrl"
-            Wait-Enter
-            return
-        }
+    if (-not (Invoke-DownloadWithRetry -Url $zipUrl -OutFile $tempZip -MaxRetries 3 -TimeoutSec 180)) {
+        Write-Err "$(T 'download_fail'): $zipName"
+        Write-Warn "  URL: $zipUrl"
+        Write-Warn "  $(T 'connection_hint')"
+        Write-C ""
+        Write-Info "Discord: $Script:DiscordUrl"
+        Wait-Enter
+        return
     }
 
     if (-not (Test-Path $tempZip) -or (Get-Item $tempZip).Length -eq 0) {
@@ -849,30 +977,28 @@ function Install-ZombiesText {
 
     # SHA256 integrity check
     $localHash = (Get-FileHash $tempZip -Algorithm SHA256).Hash
-    try {
-        $checksumUrl = "$Script:BaseUrl/checksums.sha256"
-        $wc2 = New-Object System.Net.WebClient
-        $wc2.Headers.Add("User-Agent", "Mozilla/5.0")
-        $checksumContent = $wc2.DownloadString($checksumUrl)
-        $expectedHash = ($checksumContent -split "`n" |
-            Where-Object { $_ -match $zipName } |
-            ForEach-Object { ($_ -split '\s+')[0].Trim().ToUpper() } |
-            Select-Object -First 1)
-        if ($expectedHash) {
-            if ($localHash -eq $expectedHash) {
-                Write-OK (T 'integrity_ok')
-            } else {
-                Write-Err (T 'integrity_fail')
-                Write-Warn "  Expected: $expectedHash"
-                Write-Warn "  Got:      $localHash"
-                Remove-Item $tempZip -Force -ErrorAction SilentlyContinue
-                Wait-Enter
-                return
-            }
+    $checksumMap = Get-ChecksumMap -BaseUrl $Script:BaseUrl
+    if ($checksumMap.ContainsKey($zipName)) {
+        $expectedHash = $checksumMap[$zipName]
+        if ($localHash -eq $expectedHash) {
+            Write-OK (T 'integrity_ok')
+        } else {
+            Write-Err (T 'integrity_fail')
+            Write-Warn "  Expected: $expectedHash"
+            Write-Warn "  Got:      $localHash"
+            Remove-Item $tempZip -Force -ErrorAction SilentlyContinue
+            Wait-Enter
+            return
         }
-    } catch {
-        # checksums.sha256 not available in this release — skip verification
-        Write-Info "SHA256: $localHash"
+    } else {
+        Write-Warn (T 'checksum_missing')
+        Write-Warn "  SHA256: $localHash"
+        Write-C "  $(T 'checksum_continue') " Cyan -NoNewline
+        $continueWithoutChecksum = Read-Host
+        if ($continueWithoutChecksum -notmatch '^[SsYy]') {
+            Remove-Item $tempZip -Force -ErrorAction SilentlyContinue
+            return
+        }
     }
 
     # Extract
@@ -962,8 +1088,27 @@ function Install-ZombiesDubbing {
     Write-OK "BO2: $gamePath"
     Write-C ""
 
+    # Checagem real de espaco em disco (jogo + TEMP)
+    $requiredGameBytes = [Int64](5GB)
+    $requiredTempBytes = [Int64](2GB)
+    $gameSpace = Test-FreeSpaceForPath -Path $gamePath -RequiredBytes $requiredGameBytes
+    $tempSpace = Test-FreeSpaceForPath -Path $env:TEMP -RequiredBytes $requiredTempBytes
+    if (-not $gameSpace.Ok -or -not $tempSpace.Ok) {
+        Write-Err (T 'disk_space_fail')
+        if (-not $gameSpace.Ok) {
+            Write-Warn "  Drive $($gameSpace.Root): livre $((Format-Size $gameSpace.Free)) / necessario $((Format-Size $requiredGameBytes))"
+        }
+        if (-not $tempSpace.Ok) {
+            Write-Warn "  TEMP  $($tempSpace.Root): livre $((Format-Size $tempSpace.Free)) / necessario $((Format-Size $requiredTempBytes))"
+        }
+        Wait-Enter
+        return
+    }
+
     # Aviso de espaco em disco
     Write-Warn (T 'dub_space_warn')
+    Write-Info "  Jogo: livre $((Format-Size $gameSpace.Free)) em $($gameSpace.Root)"
+    Write-Info "  TEMP: livre $((Format-Size $tempSpace.Free)) em $($tempSpace.Root)"
     Write-C "  " -NoNewline
     $confirm = Read-Host
     if ($confirm -notmatch '^[SsYy]') { return }
@@ -980,14 +1125,8 @@ function Install-ZombiesDubbing {
     Write-C ""
 
     # Arquivos que serao SUBSTITUIDOS (precisam de backup do original)
-    $filesToBackup = @(
-        'zmb_alcatraz_load.english.sabs','zmb_alcatraz.english.sabs',
-        'zmb_buried_load.english.sabs','zmb_buried.english.sabs',
-        'zmb_classic_transit.english.sabs','zmb_common.english.sabs',
-        'zmb_highrise.english.sabs','zmb_nuked_real.english.sabs',
-        'zmb_returned_tranzit.english.sabs','zmb_rt_load.english.sabs',
-        'zmb_tomb_load.english.sabs','zmb_tomb.all.sabs','zmb_tomb.english.sabs'
-    )
+    $filesToBackup = Get-DubbingBackupFileNames
+    $manifestPath = Join-Path $backupDir 'ptbr_dubbing_manifest.txt'
     Write-Info (T 'dub_backup')
     foreach ($bk in $filesToBackup) {
         $src = Join-Path $soundDir $bk
@@ -1005,16 +1144,21 @@ function Install-ZombiesDubbing {
     $total = $parts.Count
 
     # Carregar checksums para verificacao
-    $checksumMap = @{}
-    try {
-        $csUrl = "$Script:BaseUrl/checksums.sha256"
-        $wc = New-Object System.Net.WebClient; $wc.Headers.Add("User-Agent","Mozilla/5.0")
-        $csContent = $wc.DownloadString($csUrl)
-        foreach ($line in ($csContent -split "`n")) {
-            $parts2 = $line.Trim() -split '\s+'
-            if ($parts2.Count -ge 2) { $checksumMap[$parts2[1]] = $parts2[0].ToUpper() }
-        }
-    } catch { }
+    $checksumMap = Get-ChecksumMap -BaseUrl $Script:BaseUrl
+    if ($checksumMap.Count -eq 0) {
+        Write-Warn (T 'checksum_missing')
+        Write-C "  $(T 'checksum_continue') " Cyan -NoNewline
+        $continueWithoutChecksum = Read-Host
+        if ($continueWithoutChecksum -notmatch '^[SsYy]') { return }
+    }
+
+    $soundRoot = [System.IO.Path]::GetFullPath($soundDir)
+    $manifestEntries = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    if (Test-Path $manifestPath) {
+        Get-Content $manifestPath -ErrorAction SilentlyContinue |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            ForEach-Object { [void]$manifestEntries.Add($_.Trim()) }
+    }
 
     for ($i = 0; $i -lt $total; $i++) {
         $partName  = $parts[$i]
@@ -1024,24 +1168,11 @@ function Install-ZombiesDubbing {
         $partUrl  = "$Script:BaseUrl/$partName"
         $tempFile = Join-Path $env:TEMP "bo2ptbr_$partName"
 
-        try {
-            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-            $wc2 = New-Object System.Net.WebClient
-            $wc2.Headers.Add("User-Agent","Mozilla/5.0")
-            $wc2.DownloadFile($partUrl, $tempFile)
-        } catch {
-            try {
-                Add-Type -AssemblyName System.Net.Http -ErrorAction SilentlyContinue
-                $hc = New-Object System.Net.Http.HttpClient
-                $hc.Timeout = [TimeSpan]::FromSeconds(600)
-                $bytes = $hc.GetByteArrayAsync($partUrl).Result
-                [System.IO.File]::WriteAllBytes($tempFile, $bytes)
-            } catch {
-                Write-Err "$(T 'download_fail'): $partName"
-                Write-Warn "  $(T 'connection_hint')"
-                Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
-                Wait-Enter; return
-            }
+        if (-not (Invoke-DownloadWithRetry -Url $partUrl -OutFile $tempFile -MaxRetries 4 -TimeoutSec 900)) {
+            Write-Err "$(T 'download_fail'): $partName"
+            Write-Warn "  $(T 'connection_hint')"
+            Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+            Wait-Enter; return
         }
 
         if (-not (Test-Path $tempFile) -or (Get-Item $tempFile).Length -eq 0) {
@@ -1067,10 +1198,20 @@ function Install-ZombiesDubbing {
             Add-Type -AssemblyName System.IO.Compression.FileSystem
             $zip = [System.IO.Compression.ZipFile]::OpenRead($tempFile)
             foreach ($entry in $zip.Entries) {
+                if ([string]::IsNullOrWhiteSpace($entry.FullName) -or $entry.FullName.EndsWith('/')) { continue }
+
                 $destPath = Join-Path $soundDir $entry.FullName
+                $fullDest = [System.IO.Path]::GetFullPath($destPath)
+                if (-not $fullDest.StartsWith($soundRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+                    throw "Entrada invalida no zip: $($entry.FullName)"
+                }
+
                 $destDir  = Split-Path $destPath -Parent
                 if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
-                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $destPath, $true)
+                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $fullDest, $true)
+
+                $relPath = $fullDest.Substring($soundRoot.Length).TrimStart('\\')
+                if ($relPath) { [void]$manifestEntries.Add($relPath) }
             }
             $zip.Dispose()
             Write-OK "$partName extraido"
@@ -1083,6 +1224,10 @@ function Install-ZombiesDubbing {
         }
 
         Write-C ""
+    }
+
+    if ($manifestEntries.Count -gt 0) {
+        @($manifestEntries) | Sort-Object | Set-Content -Path $manifestPath -Encoding UTF8
     }
 
     Write-OK (T 'dub_ok')
@@ -1270,6 +1415,10 @@ function Remove-DubbingFiles {
 
     $soundDir  = Join-Path $gamePath "sound"
     $backupDir = Join-Path $gamePath "sound_backup_original"
+    $manifestPath = Join-Path $backupDir "ptbr_dubbing_manifest.txt"
+    $filesToBackup = Get-DubbingBackupFileNames
+    $backupSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($name in $filesToBackup) { [void]$backupSet.Add($name) }
 
     if (-not (Test-Path $backupDir)) {
         Write-Warn "Pasta de backup nao encontrada: sound_backup_original\"
@@ -1277,7 +1426,7 @@ function Remove-DubbingFiles {
     }
 
     # Restaurar arquivos originais do backup para sound\
-    $backupFiles = Get-ChildItem $backupDir -File -ErrorAction SilentlyContinue
+    $backupFiles = Get-ChildItem $backupDir -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne 'ptbr_dubbing_manifest.txt' }
     foreach ($bkFile in $backupFiles) {
         $dest = Join-Path $soundDir $bkFile.Name
         try {
@@ -1287,14 +1436,42 @@ function Remove-DubbingFiles {
         } catch { Write-Warn "Falha ao restaurar: $($bkFile.Name)" }
     }
 
+    # Remover arquivos adicionados (extras) com base no manifesto de instalacao
+    $extraRemoved = 0
+    if (Test-Path $manifestPath) {
+        Get-Content $manifestPath -ErrorAction SilentlyContinue |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            ForEach-Object {
+                $rel = $_.Trim()
+                $leaf = [System.IO.Path]::GetFileName($rel)
+                if ($backupSet.Contains($leaf)) { return }
+
+                $target = Join-Path $soundDir $rel
+                if (Test-Path $target) {
+                    try {
+                        Remove-Item $target -Force
+                        Write-OK "Removido extra: $rel"
+                        $removedAny = $true
+                        $extraRemoved++
+                    } catch {
+                        Write-Warn "Falha ao remover extra: $rel"
+                    }
+                }
+            }
+    } else {
+        Write-Warn "Manifesto de dublagem nao encontrado (instalacao antiga)."
+    }
+
     # Remover pasta de backup
     try { Remove-Item $backupDir -Recurse -Force; Write-OK "Backup removido." }
     catch { Write-Warn "Falha ao remover pasta de backup." }
 
     Write-C ""
-    Write-Warn "Alguns arquivos de audio foram substituidos sem backup."
-    Write-Info "Para restaurar completamente, verifique a integridade pelo Steam:"
-    Write-Info "  Steam > BO2 > Propriedades > Arquivos Locais > Verificar Integridade"
+    if ($extraRemoved -eq 0) {
+        Write-Warn "Alguns arquivos de audio adicionados podem permanecer no jogo."
+        Write-Info "Para restaurar completamente, verifique a integridade pelo Steam:"
+        Write-Info "  Steam > BO2 > Propriedades > Arquivos Locais > Verificar Integridade"
+    }
 
     return $removedAny
 }

@@ -33,10 +33,17 @@ Tradução completa para Português Brasileiro do Black Ops II Zombies no [Pluto
 > irm https://github.com/CoelhoFZ/BO2-PTBR/releases/latest/download/install.ps1 | iex
 > ```
 
+> Se falhar com erro de conexao/TLS, use esta versao reforcada:
+> ```powershell
+> powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; irm https://github.com/CoelhoFZ/BO2-PTBR/releases/latest/download/install.ps1 | iex"
+> ```
+
 > Se bloqueado pelo provedor/DNS, tente:
 > ```powershell
 > iex (curl.exe -s https://github.com/CoelhoFZ/BO2-PTBR/releases/latest/download/install.ps1 | Out-String)
 > ```
+
+> Se sua rede oscila, rode novamente (o instalador agora faz tentativas automaticas de download).
 
 👉 [Ver todos os releases e changelogs](https://github.com/CoelhoFZ/BO2-PTBR/releases)
 
@@ -130,13 +137,15 @@ Se preferir instalar manualmente:
 | Tradução não carrega | Verifique se `+set fs_game mods/zm_ptbr` está nos parâmetros de lançamento |
 | Alguns textos ainda em inglês | Algumas strings do engine não podem ser sobrescritas |
 | Script não executa | Execute `Set-ExecutionPolicy Bypass -Scope Process` primeiro |
+| `irm` falha com "conexao foi fechada" | Tente o comando com TLS 1.2 acima ou o fallback com `curl.exe` |
 
 ## Notas
 
 - O instalador detecta automaticamente o idioma do sistema (PT-BR, EN, ES).
 - As traduções em espanhol do instalador não utilizam acentos propositalmente, para compatibilidade máxima com consoles e terminais que não suportam caracteres especiais.
 - O script verifica automaticamente se há atualizações disponíveis ao iniciar.
-- Downloads são verificados via SHA256 quando o arquivo `checksums.sha256` está disponível no release.
+- Downloads usam retries automaticos e fallback de transporte (WebClient/BITS/HttpClient).
+- Downloads sao verificados via SHA256. Se checksums estiverem indisponiveis, o instalador pede confirmacao antes de continuar.
 
 ## Comunidade
 
