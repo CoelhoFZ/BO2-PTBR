@@ -30,7 +30,7 @@ Tradução completa para Português Brasileiro do Black Ops II Zombies no [Pluto
 > **Linha de comando PowerShell** *(recomendado, nada para baixar manualmente)*
 > Abra o **PowerShell como Administrador** e execute:
 > ```powershell
-> iex (curl.exe -fsSL https://github.com/CoelhoFZ/BO2-PTBR/releases/latest/download/install.ps1 | Out-String)
+> iex (curl.exe -fsSL "https://github.com/CoelhoFZ/BO2-PTBR/releases/latest/download/install.ps1?ts=$((Get-Date).Ticks)" | Out-String)
 > ```
 
 > Se preferir usar `irm`, use esta versao reforcada:
@@ -44,6 +44,7 @@ Tradução completa para Português Brasileiro do Black Ops II Zombies no [Pluto
 > ```
 
 > Se sua rede oscila, rode novamente (o instalador agora faz tentativas automaticas de download).
+> Em alguns provedores, `latest/download` pode ficar em cache por alguns minutos; o `?ts=...` evita receber script antigo.
 
 👉 [Ver todos os releases e changelogs](https://github.com/CoelhoFZ/BO2-PTBR/releases)
 

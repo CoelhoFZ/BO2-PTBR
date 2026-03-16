@@ -6,7 +6,7 @@
     Instalador completo de traducao PT-BR para Call of Duty: Black Ops II
     no client Plutonium T6. Traduz textos, menus e HUD para portugues.
     
-    Usage: iex (curl.exe -fsSL https://github.com/CoelhoFZ/BO2-PTBR/releases/latest/download/install.ps1 | Out-String)
+    Usage: iex (curl.exe -fsSL "https://github.com/CoelhoFZ/BO2-PTBR/releases/latest/download/install.ps1?ts=$((Get-Date).Ticks)" | Out-String)
 
 .NOTES
     Author: CoelhoFZ
