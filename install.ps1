@@ -344,9 +344,9 @@ function T {
             es = "Eliminar Textos PT-BR (menus, HUD, pistas)"
         }
         "uninstall_opt_dub" = @{
-            en = "Remove PT-BR Dubbing (audio) [Em Breve]"
-            pt = "Remover Dublagem PT-BR (audio) [Em Breve]"
-            es = "Eliminar Doblaje PT-BR (audio) [Proximamente]"
+            en = "Remove PT-BR Dubbing (audio)"
+            pt = "Remover Dublagem PT-BR (audio)"
+            es = "Eliminar Doblaje PT-BR (audio)"
         }
         "uninstall_opt_all" = @{
             en = "Remove Everything (text + dubbing)"
@@ -677,14 +677,12 @@ function Test-ZombiesTextInstalled {
 }
 
 function Test-ZombiesDubbingInstalled {
-    $t6Path = Get-T6StoragePath
-    if (-not $t6Path) { return $false }
-
-    $modDir = Join-Path $t6Path "mods\zm_ptbr"
-    if (-not (Test-Path $modDir)) { return $false }
-    $sabl = Get-ChildItem $modDir -Filter "*.sabl" -ErrorAction SilentlyContinue
-    $sabs = Get-ChildItem $modDir -Filter "*.sabs" -ErrorAction SilentlyContinue
-    return (($sabl.Count -gt 0) -or ($sabs.Count -gt 0))
+    $gamePath = Get-BO2GamePath
+    if (-not $gamePath) { return $false }
+    $backupDir = Join-Path $gamePath "sound_backup_original"
+    if (-not (Test-Path $backupDir)) { return $false }
+    $files = Get-ChildItem $backupDir -File -ErrorAction SilentlyContinue
+    return ($files.Count -gt 0)
 }
 
 function Test-LauncherPatched {
@@ -981,22 +979,46 @@ function Remove-DubbingFiles {
     param([string]$t6Path)
     $removedAny = $false
 
-    $modDir = Join-Path $t6Path "mods\zm_ptbr"
-    if (-not (Test-Path $modDir)) { return $false }
-
-    $audioExts = @('.sabl', '.sabs')
-    $audioFiles = Get-ChildItem $modDir -File -ErrorAction SilentlyContinue |
-        Where-Object { $_.Extension -in $audioExts }
-
-    foreach ($af in $audioFiles) {
-        try { Remove-Item $af.FullName -Force; Write-OK "mods\zm_ptbr\$($af.Name) ($([math]::Round($af.Length/1MB,1)) MB)"; $removedAny = $true } catch { Write-Warn "Falha: $($af.Name)" }
+    $gamePath = Get-BO2GamePath
+    if (-not $gamePath) {
+        Write-Warn "Caminho do BO2 nao encontrado."
+        return $false
     }
 
-    # Se mod dir ficar sem textos também, limpa
-    $remaining = Get-ChildItem $modDir -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -in @('mod.ff','mod.json') }
-    if ($remaining.Count -eq 0 -and $removedAny) {
-        try { Remove-Item $modDir -Recurse -Force -ErrorAction SilentlyContinue } catch { }
+    $soundDir  = Join-Path $gamePath "sound"
+    $backupDir = Join-Path $gamePath "sound_backup_original"
+
+    if (-not (Test-Path $backupDir)) {
+        Write-Warn "Pasta de backup nao encontrada: sound_backup_original\"
+        return $false
     }
+
+    # Passo 1: Restaurar arquivos originais do backup para sound\
+    $backupFiles = Get-ChildItem $backupDir -File -ErrorAction SilentlyContinue
+    $backupNames = @($backupFiles | Select-Object -ExpandProperty Name)
+    foreach ($bkFile in $backupFiles) {
+        $dest = Join-Path $soundDir $bkFile.Name
+        try {
+            Copy-Item $bkFile.FullName $dest -Force
+            Write-OK "Restaurado: $($bkFile.Name) ($([math]::Round($bkFile.Length/1MB,1)) MB)"
+            $removedAny = $true
+        } catch { Write-Warn "Falha ao restaurar: $($bkFile.Name)" }
+    }
+
+    # Passo 2: Deletar arquivos adicionados pela dublagem (nao existiam antes)
+    Get-ChildItem $soundDir -File -ErrorAction SilentlyContinue | Where-Object {
+        $_.Name -notin $backupNames -and
+        ($_.Name -match '^zmb_.*\.(sabl|sabs)$' -or
+         $_.Name -match '^cmn_root\.' -or
+         $_.Name -match '^wpn_(gaz_quad|gaz_single|slingshot)\.')
+    } | ForEach-Object {
+        try { Remove-Item $_.FullName -Force; Write-OK "Removido: $($_.Name)" }
+        catch { Write-Warn "Falha ao remover: $($_.Name)" }
+    }
+
+    # Passo 3: Remover pasta de backup
+    try { Remove-Item $backupDir -Recurse -Force; Write-OK "Backup removido." }
+    catch { Write-Warn "Falha ao remover pasta de backup." }
 
     return $removedAny
 }
@@ -1162,7 +1184,7 @@ function Show-Status {
     if (Test-ZombiesDubbingInstalled) {
         Write-C (T 'status_installed') Green
     } else {
-        Write-C "Em Breve" Yellow
+        Write-C (T 'status_not_installed') DarkGray
     }
 
     # Auto-load
