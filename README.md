@@ -1,65 +1,64 @@
-# Black Ops 2 — PT-BR Translation (Plutonium T6)
+# Black Ops 2 — Tradução PT-BR (Plutonium T6)
 
 <p align="center">
   <a href="https://github.com/CoelhoFZ/BO2-PTBR/releases/latest">
-    <img src="https://img.shields.io/github/v/release/CoelhoFZ/BO2-PTBR?style=for-the-badge&color=brightgreen&label=LATEST+VERSION" alt="Latest Version"/>
+    <img src="https://img.shields.io/github/v/release/CoelhoFZ/BO2-PTBR?style=for-the-badge&color=brightgreen&label=%C3%9ALTIMA+VERS%C3%83O" alt="Última Versão"/>
   </a>
   <a href="https://github.com/CoelhoFZ/BO2-PTBR/stargazers">
     <img src="https://img.shields.io/github/stars/CoelhoFZ/BO2-PTBR?style=for-the-badge&color=yellow" alt="Stars"/>
   </a>
   <a href="https://discord.gg/bfFdyJ3gEj">
-    <img src="https://img.shields.io/badge/DISCORD-JOIN-7289da?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"/>
+    <img src="https://img.shields.io/badge/DISCORD-ENTRAR-7289da?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"/>
   </a>
-  <a href="README_PT-BR.md">
-    <img src="https://img.shields.io/badge/lang-PT--BR-009c3b?style=for-the-badge" alt="Português"/>
+  <a href="https://github.com/CoelhoFZ/BO2-PTBR/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/licen%C3%A7a-GPLv3-blue?style=for-the-badge" alt="Licença GPLv3"/>
   </a>
 </p>
 
-> **🌍 Complete PT-BR translation for Call of Duty: Black Ops II on Plutonium T6!**
+> **�🇷 Tradução completa PT-BR para Call of Duty: Black Ops II no Plutonium T6!**
 
-**Black Ops 2 PT-BR** | **BO2 translation** | **Plutonium T6 Portuguese** | **BO2 tradução** | **Black Ops 2 português**
+**Black Ops 2 PT-BR** | **BO2 tradução** | **Plutonium T6 português** | **BO2 em português** | **Black Ops 2 traduzido** | **Como traduzir BO2**
 
-Full Brazilian Portuguese translation for Black Ops II Zombies on [Plutonium T6](https://plutonium.pw). Translates menus, HUD, loading screens, hints, and in-game text — over **1,000 translated strings**.
+Tradução completa para Português Brasileiro do Black Ops II Zombies no [Plutonium T6](https://plutonium.pw). Traduz menus, HUD, telas de carregamento, dicas e textos do jogo — mais de **1.000 strings traduzidas**.
 
-> ⚠️ **Disclaimer**: This project is a fan-made translation mod. It only modifies text/UI elements. Please support the developers by purchasing the original game.
+> ⚠️ **Aviso**: Este projeto é um mod de tradução feito por fãs. Ele modifica apenas elementos de texto/UI. Por favor, apoie os desenvolvedores comprando o jogo original.
 
 ---
 
 ## ⬇️ Download
 
-> **PowerShell one-liner** *(recommended, nothing to download manually)*
-> Open **PowerShell as Administrator** and run:
+> **Linha de comando PowerShell** *(recomendado, nada para baixar manualmente)*
+> Abra o **PowerShell como Administrador** e execute:
 > ```powershell
 > irm https://github.com/CoelhoFZ/BO2-PTBR/releases/latest/download/install.ps1 | iex
 > ```
 
-> If blocked by your network/DNS, try:
+> Se bloqueado pelo provedor/DNS, tente:
 > ```powershell
 > iex (curl.exe -s https://github.com/CoelhoFZ/BO2-PTBR/releases/latest/download/install.ps1 | Out-String)
 > ```
 
-👉 [View all releases and changelogs](https://github.com/CoelhoFZ/BO2-PTBR/releases)
+👉 [Ver todos os releases e changelogs](https://github.com/CoelhoFZ/BO2-PTBR/releases)
 
 ---
 
-## Requirements
+## Requisitos
 
 - Windows 10/11 (64-bit)
-- [Plutonium T6](https://plutonium.pw) client installed
-- Call of Duty: Black Ops II game files (Steam or any source)
-- Internet connection (for download)
+- Client [Plutonium T6](https://plutonium.pw) instalado
+- Arquivos do jogo Call of Duty: Black Ops II (Steam ou qualquer fonte)
+- Conexão com a internet (para download)
 
-## What It Does
+## O que o Script Faz
 
-The installer:
-1. Detects your language automatically (PT-BR, EN, ES)
-2. Requests Administrator privileges if needed
-3. Finds your Plutonium installation
-4. Downloads and installs translation files
-5. Configures the Plutonium Launcher for auto-load
-6. Provides easy uninstall
+O instalador:
+1. Solicita privilégios de Administrador se necessário
+2. Encontra sua instalação do Plutonium automaticamente
+3. Baixa e instala os arquivos de tradução
+4. Configura o Plutonium Launcher para carregar o mod automaticamente ao iniciar Zombies
+5. Oferece opção de desinstalação completa
 
-## Interactive Menu
+## Menu Interativo
 
 ```
   ============================================================
@@ -77,70 +76,68 @@ The installer:
                   PT-BR by CoelhoFZ (Plutonium)
   ============================================================
 
-[1] Install Zombies
-[2] Install Multiplayer [Coming Soon]
-[3] Install Campaign [Coming Soon]
-[4] Uninstall
-[5] Check Status
-[0] Exit
+[1] Instalar Zombies
+[2] Instalar Multiplayer [Em Breve]
+[3] Instalar Campanha [Em Breve]
+[4] Remover Tradução PT-BR
+[5] Verificar Status
+[0] Sair
 ```
 
-## Features
+## Funcionalidades
 
-- 🌍 **Multi-language**: Auto-detects EN, PT-BR, ES
-- 🎮 **1,000+ strings**: Menus, HUD, loading screens, hints, perks, weapons
-- 🔧 **Auto-load**: Configures Plutonium Launcher automatically
-- 📦 **Easy install**: One PowerShell command, interactive menus
-- 🗑️ **Clean uninstall**: Removes all files and restores launcher
-- 🔄 **Reinstall support**: Detects existing installation
+- 🎮 **1.000+ strings**: Menus, HUD, telas de carregamento, dicas, perks, armas
+- 🔧 **Auto-carregamento**: Configura o Plutonium Launcher para iniciar Zombies já com PT-BR
+- 📦 **Fácil de instalar**: Um único comando PowerShell, menu interativo
+- 🗑️ **Remoção limpa**: Remove todos os arquivos e restaura o launcher ao estado original
 
-## Translation Coverage
+## Cobertura da Tradução
 
-### Zombies Mode
-| Category | Status |
-|----------|--------|
-| Menus & UI | ✅ Translated |
-| Loading screens | ✅ Translated |
-| HUD elements | ✅ Translated |
-| Perk names & descriptions | ✅ Translated |
-| Weapon names | ✅ Translated |
-| Barrier/door hints | ✅ Translated |
-| Power-ups | ✅ Translated |
-| Game over / end screens | ✅ Translated |
+### Modo Zombies
+| Categoria | Status |
+|-----------|--------|
+| Menus & UI | ✅ Traduzido |
+| Telas de carregamento | ✅ Traduzido |
+| Elementos do HUD | ✅ Traduzido |
+| Nomes e descrições de perks | ✅ Traduzido |
+| Nomes de armas | ✅ Traduzido |
+| Dicas de barreiras/portas | ✅ Traduzido |
+| Power-ups | ✅ Traduzido |
+| Game over / telas finais | ✅ Traduzido |
 
 ### Multiplayer
-🚧 Coming soon
+🚧 Em breve
 
-### Campaign
-🚧 Coming soon
+### Campanha
+🚧 Em breve
 
-## Manual Installation
+## Instalação Manual
 
-If you prefer to install manually:
+Se preferir instalar manualmente:
 
-1. Download `textos_zm.zip` from the [latest release](https://github.com/CoelhoFZ/BO2-PTBR/releases/latest)
-2. Extract to `%LOCALAPPDATA%\Plutonium\storage\t6\`
-3. Add `+set fs_game mods/zm_ptbr` to your Plutonium T6 Zombies launch parameters
+1. Baixe o `textos_zm.zip` do [último release](https://github.com/CoelhoFZ/BO2-PTBR/releases/latest)
+2. Extraia em `%LOCALAPPDATA%\Plutonium\storage\t6\`
+3. Adicione `+set fs_game mods/zm_ptbr` nos parâmetros de lançamento do Plutonium T6 Zombies
 
-## Troubleshooting
+## Solução de Problemas
 
-| Problem | Solution |
-|---------|----------|
-| "Plutonium NOT FOUND" | Make sure Plutonium T6 is installed. Run the launcher at least once. |
-| Translation not loading | Check if `+set fs_game mods/zm_ptbr` is in your launch params |
-| Some text still in English | A few engine-level strings cannot be overridden |
-| Script won't run | Run `Set-ExecutionPolicy Bypass -Scope Process` first |
+| Problema | Solução |
+|----------|---------|
+| "Plutonium NAO ENCONTRADO" | Certifique-se que o Plutonium T6 está instalado. Execute o launcher pelo menos uma vez. |
+| Tradução não carrega | Verifique se `+set fs_game mods/zm_ptbr` está nos parâmetros de lançamento |
+| Alguns textos ainda em inglês | Algumas strings do engine não podem ser sobrescritas |
+| Script não executa | Execute `Set-ExecutionPolicy Bypass -Scope Process` primeiro |
 
-## Community
+## Comunidade
 
-Join our Discord: https://discord.gg/bfFdyJ3gEj
+Entre no nosso Discord: https://discord.gg/bfFdyJ3gEj
 
-## Credits
+## Créditos
 
-- **CoelhoFZ** — Translation & tool development
-- **Plutonium Team** — T6 client
+- **CoelhoFZ** — Tradução e desenvolvimento da ferramenta
+- **Equipe Plutonium** — Client T6
 - **Treyarch / Activision** — Call of Duty: Black Ops II
 
-## License
+## Licença
 
-GPLv3 — See [LICENSE](LICENSE)
+GPLv3 — Veja [LICENSE](LICENSE)

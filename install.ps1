@@ -84,9 +84,9 @@ function T {
             es = "Instalar Campana [Proximamente]"
         }
         "menu_4" = @{
-            en = "Uninstall"
-            pt = "Desinstalar"
-            es = "Desinstalar"
+            en = "Remove PT-BR Translation"
+            pt = "Remover Traducao PT-BR"
+            es = "Eliminar Traduccion PT-BR"
         }
         "menu_5" = @{
             en = "Check Status"
@@ -264,9 +264,9 @@ function T {
             es = "Saliendo... Hasta luego!"
         }
         "confirm_uninstall" = @{
-            en = "Are you sure? This will remove all translation files. [Y/N]"
-            pt = "Tem certeza? Isso vai remover todos os arquivos de traducao. [S/N]"
-            es = "Esta seguro? Esto eliminara todos los archivos de traduccion. [S/N]"
+            en = "Are you sure? This will remove the translation and the game will return to English. [Y/N]"
+            pt = "Tem certeza? O jogo voltara para o ingles. Pode reinstalar quando quiser. [S/N]"
+            es = "Esta seguro? El juego volvera al ingles. Puede reinstalar cuando quiera. [S/N]"
         }
         "uninstall_cancelled" = @{
             en = "Uninstall cancelled."
@@ -518,12 +518,18 @@ function Get-LauncherJsPath {
     $plutoPath = Find-PlutoniumPath
     if (-not $plutoPath) { return $null }
 
-    $resourcesDir = Join-Path $plutoPath "bin\resources\app"
-    if (-not (Test-Path $resourcesDir)) { return $null }
+    # Caminho principal (estrutura atual do Plutonium)
+    $primaryDir = Join-Path $plutoPath "launcher\assets\js"
+    if (Test-Path $primaryDir) {
+        $jsFiles = Get-ChildItem $primaryDir -Filter "games.*.js" -ErrorAction SilentlyContinue
+        if ($jsFiles.Count -gt 0) { return $jsFiles[0].FullName }
+    }
 
-    $jsFiles = Get-ChildItem $resourcesDir -Filter "games.*.js" -ErrorAction SilentlyContinue
-    if ($jsFiles.Count -gt 0) {
-        return $jsFiles[0].FullName
+    # Caminho alternativo (versoes antigas/alternativas do Plutonium)
+    $fallbackDir = Join-Path $plutoPath "bin\resources\app"
+    if (Test-Path $fallbackDir) {
+        $jsFiles = Get-ChildItem $fallbackDir -Filter "games.*.js" -ErrorAction SilentlyContinue
+        if ($jsFiles.Count -gt 0) { return $jsFiles[0].FullName }
     }
 
     return $null
@@ -535,6 +541,17 @@ function Test-ZombiesTextInstalled {
 
     $modFf = Join-Path $t6Path "mods\zm_ptbr\mod.ff"
     return (Test-Path $modFf)
+}
+
+function Test-ZombiesDubbingInstalled {
+    $t6Path = Get-T6StoragePath
+    if (-not $t6Path) { return $false }
+
+    $modDir = Join-Path $t6Path "mods\zm_ptbr"
+    if (-not (Test-Path $modDir)) { return $false }
+    $sabl = Get-ChildItem $modDir -Filter "*.sabl" -ErrorAction SilentlyContinue
+    $sabs = Get-ChildItem $modDir -Filter "*.sabs" -ErrorAction SilentlyContinue
+    return (($sabl.Count -gt 0) -or ($sabs.Count -gt 0))
 }
 
 function Test-LauncherPatched {
@@ -903,7 +920,11 @@ function Show-Status {
 
     # Zombies Dubbing
     Write-C "  $(T 'status_dub_zm'):  " -NoNewline
-    Write-C (T 'status_not_installed') DarkGray
+    if (Test-ZombiesDubbingInstalled) {
+        Write-C (T 'status_installed') Green
+    } else {
+        Write-C "Em Breve" Yellow
+    }
 
     # Auto-load
     Write-C "  $(T 'status_launcher'):   " -NoNewline
