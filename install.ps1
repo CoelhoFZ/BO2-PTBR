@@ -20,7 +20,7 @@ $ProgressPreference = 'SilentlyContinue'
 # ============================================================================
 # Configuration
 # ============================================================================
-$Script:Version   = "1.2.0"
+$Script:Version   = "1.3.0"
 $Script:RepoOwner = "CoelhoFZ"
 $Script:RepoName  = "BO2-PTBR"
 $Script:BaseUrl   = "https://github.com/$RepoOwner/$RepoName/releases/latest/download"
@@ -102,16 +102,6 @@ function T {
             en = "Installation Type"
             pt = "Tipo de Instalacao"
             es = "Tipo de Instalacion"
-        }
-        "sub_1" = @{
-            en = "Dubbing + Text [Coming Soon]"
-            pt = "Dublagem + Textos [Em Breve]"
-            es = "Doblaje + Textos [Proximamente]"
-        }
-        "sub_2" = @{
-            en = "Only Dubbing [Coming Soon]"
-            pt = "Somente Dublagem [Em Breve]"
-            es = "Solo Doblaje [Proximamente]"
         }
         "sub_3" = @{
             en = "Only Text"
@@ -408,6 +398,51 @@ function T {
             pt = "Verificacao de integridade FALHOU! O arquivo pode estar corrompido. Tente novamente."
             es = "Verificacion de integridad FALLO! El archivo puede estar corrupto. Intente nuevamente."
         }
+        "dub_installing" = @{
+            en = "Installing dubbing (PT-BR voices)..."
+            pt = "Instalando dublagem (vozes PT-BR)..."
+            es = "Instalando doblaje (voces PT-BR)..."
+        }
+        "dub_part" = @{
+            en = "Downloading part {0} of {1}: {2}"
+            pt = "Baixando parte {0} de {1}: {2}"
+            es = "Descargando parte {0} de {1}: {2}"
+        }
+        "dub_extracting" = @{
+            en = "Extracting voices to game folder..."
+            pt = "Extraindo vozes para a pasta do jogo..."
+            es = "Extrayendo voces a la carpeta del juego..."
+        }
+        "dub_backup" = @{
+            en = "Backing up original audio files..."
+            pt = "Fazendo backup dos arquivos de audio originais..."
+            es = "Haciendo copia de seguridad de archivos de audio originales..."
+        }
+        "dub_ok" = @{
+            en = "Dubbing installed successfully!"
+            pt = "Dublagem instalada com sucesso!"
+            es = "Doblaje instalado exitosamente!"
+        }
+        "dub_space_warn" = @{
+            en = "Dubbing requires ~4.5 GB of free disk space. Continue? [Y/N]"
+            pt = "A dublagem requer ~4.5 GB de espaco livre em disco. Continuar? [S/N]"
+            es = "El doblaje requiere ~4.5 GB de espacio libre en disco. Continuar? [S/N]"
+        }
+        "bo2_required" = @{
+            en = "Black Ops 2 game folder required for dubbing."
+            pt = "A pasta do jogo Black Ops 2 e necessaria para a dublagem."
+            es = "La carpeta del juego Black Ops 2 es necesaria para el doblaje."
+        }
+        "sub_1" = @{
+            en = "Text + Dubbing (PT-BR voices)"
+            pt = "Textos + Dublagem (vozes PT-BR)"
+            es = "Textos + Doblaje (voces PT-BR)"
+        }
+        "sub_2" = @{
+            en = "Only Dubbing (PT-BR voices)"
+            pt = "Somente Dublagem (vozes PT-BR)"
+            es = "Solo Doblaje (voces PT-BR)"
+        }
     }
 
     $entry = $translations[$Key]
@@ -530,9 +565,9 @@ function Show-SubMenu {
     Write-C ""
     Write-C "    $(T 'sub_title')" Green
     Write-C ""
-    Write-C "    " -NoNewline; Write-C "[1]" DarkGray -NoNewline; Write-C " $(T 'sub_1')" DarkGray
-    Write-C "    " -NoNewline; Write-C "[2]" DarkGray -NoNewline; Write-C " $(T 'sub_2')" DarkGray
-    Write-C "    " -NoNewline; Write-C "[3]" Green    -NoNewline; Write-C " $(T 'sub_3')"
+    Write-C "    " -NoNewline; Write-C "[1]" Green   -NoNewline; Write-C " $(T 'sub_1')"
+    Write-C "    " -NoNewline; Write-C "[2]" Green   -NoNewline; Write-C " $(T 'sub_2')"
+    Write-C "    " -NoNewline; Write-C "[3]" Green   -NoNewline; Write-C " $(T 'sub_3')"
     Write-C "    " -NoNewline; Write-C "[0]" Red      -NoNewline; Write-C " $(T 'sub_0')"
     Write-C ""
     Write-Line
@@ -913,6 +948,144 @@ function Install-ZombiesText {
     Write-OK (T 'done_open')
     Write-Info (T 'done_auto')
 
+    Wait-Enter
+}
+
+function Install-ZombiesDubbing {
+    $gamePath = Get-BO2GamePath
+    if (-not $gamePath) {
+        Write-Err (T 'bo2_required')
+        Write-Info (T 'bo2_not_found')
+        Wait-Enter
+        return
+    }
+    Write-OK "BO2: $gamePath"
+    Write-C ""
+
+    # Aviso de espaco em disco
+    Write-Warn (T 'dub_space_warn')
+    Write-C "  " -NoNewline
+    $confirm = Read-Host
+    if ($confirm -notmatch '^[SsYy]') { return }
+    Write-C ""
+
+    # Backup dos arquivos originais que serao substituidos
+    $soundDir  = Join-Path $gamePath "sound"
+    $backupDir = Join-Path $gamePath "sound_backup_original"
+    if (-not (Test-Path $backupDir)) {
+        New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+    }
+
+    Write-Info (T 'dub_installing')
+    Write-C ""
+
+    # Arquivos que serao SUBSTITUIDOS (precisam de backup do original)
+    $filesToBackup = @(
+        'zmb_alcatraz_load.english.sabs','zmb_alcatraz.english.sabs',
+        'zmb_buried_load.english.sabs','zmb_buried.english.sabs',
+        'zmb_classic_transit.english.sabs','zmb_common.english.sabs',
+        'zmb_highrise.english.sabs','zmb_nuked_real.english.sabs',
+        'zmb_returned_tranzit.english.sabs','zmb_rt_load.english.sabs',
+        'zmb_tomb_load.english.sabs','zmb_tomb.all.sabs','zmb_tomb.english.sabs'
+    )
+    Write-Info (T 'dub_backup')
+    foreach ($bk in $filesToBackup) {
+        $src = Join-Path $soundDir $bk
+        $dst = Join-Path $backupDir $bk
+        if ((Test-Path $src) -and -not (Test-Path $dst)) {
+            try { Copy-Item $src $dst -Force } catch { Write-Warn "Backup falhou: $bk" }
+        }
+    }
+    Write-OK (T 'dub_backup')
+    Write-C ""
+
+    # Download e extração das 4 partes
+    $parts = @("dublagem_zm_pt1.zip","dublagem_zm_pt2.zip","dublagem_zm_pt3.zip","dublagem_zm_pt4.zip")
+    $partLabels = @("Buried + TranZit","Alcatraz + Highrise","Origins","Common + Nuketown")
+    $total = $parts.Count
+
+    # Carregar checksums para verificacao
+    $checksumMap = @{}
+    try {
+        $csUrl = "$Script:BaseUrl/checksums.sha256"
+        $wc = New-Object System.Net.WebClient; $wc.Headers.Add("User-Agent","Mozilla/5.0")
+        $csContent = $wc.DownloadString($csUrl)
+        foreach ($line in ($csContent -split "`n")) {
+            $parts2 = $line.Trim() -split '\s+'
+            if ($parts2.Count -ge 2) { $checksumMap[$parts2[1]] = $parts2[0].ToUpper() }
+        }
+    } catch { }
+
+    for ($i = 0; $i -lt $total; $i++) {
+        $partName  = $parts[$i]
+        $partLabel = $partLabels[$i]
+        Write-Info ((T 'dub_part') -f ($i+1), $total, "$partName ($partLabel)")
+
+        $partUrl  = "$Script:BaseUrl/$partName"
+        $tempFile = Join-Path $env:TEMP "bo2ptbr_$partName"
+
+        try {
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            $wc2 = New-Object System.Net.WebClient
+            $wc2.Headers.Add("User-Agent","Mozilla/5.0")
+            $wc2.DownloadFile($partUrl, $tempFile)
+        } catch {
+            try {
+                Add-Type -AssemblyName System.Net.Http -ErrorAction SilentlyContinue
+                $hc = New-Object System.Net.Http.HttpClient
+                $hc.Timeout = [TimeSpan]::FromSeconds(600)
+                $bytes = $hc.GetByteArrayAsync($partUrl).Result
+                [System.IO.File]::WriteAllBytes($tempFile, $bytes)
+            } catch {
+                Write-Err "$(T 'download_fail'): $partName"
+                Write-Warn "  $(T 'connection_hint')"
+                Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+                Wait-Enter; return
+            }
+        }
+
+        if (-not (Test-Path $tempFile) -or (Get-Item $tempFile).Length -eq 0) {
+            Write-Err "$(T 'download_fail'): $partName"; Wait-Enter; return
+        }
+
+        # Verificar SHA256
+        $localHash = (Get-FileHash $tempFile -Algorithm SHA256).Hash
+        if ($checksumMap.ContainsKey($partName)) {
+            if ($localHash -ne $checksumMap[$partName]) {
+                Write-Err (T 'integrity_fail')
+                Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+                Wait-Enter; return
+            }
+            Write-OK "$(T 'integrity_ok') — $partName"
+        } else {
+            Write-Info "SHA256: $localHash"
+        }
+
+        # Extrair direto para sound\
+        Write-Info (T 'dub_extracting')
+        try {
+            Add-Type -AssemblyName System.IO.Compression.FileSystem
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($tempFile)
+            foreach ($entry in $zip.Entries) {
+                $destPath = Join-Path $soundDir $entry.FullName
+                $destDir  = Split-Path $destPath -Parent
+                if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
+                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $destPath, $true)
+            }
+            $zip.Dispose()
+            Write-OK "$partName extraido"
+            Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+        } catch {
+            Write-Err "Extracao falhou: $_"
+            try { $zip.Dispose() } catch { }
+            Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+            Wait-Enter; return
+        }
+
+        Write-C ""
+    }
+
+    Write-OK (T 'dub_ok')
     Wait-Enter
 }
 
@@ -1337,9 +1510,18 @@ function Start-MainLoop {
 
         switch ($choice.Trim()) {
             "1" {
-                # Zombies — instala textos diretamente
-                # (submenu sera reativado quando dublagem estiver disponivel)
-                Install-ZombiesText
+                # Zombies — submenu de tipo de instalacao
+                Show-SubMenu
+                Write-C "  $(T 'choose'): " Cyan -NoNewline
+                $sub = Read-Host
+                Show-Banner
+                switch ($sub.Trim()) {
+                    "1" { Install-ZombiesText; Install-ZombiesDubbing }
+                    "2" { Install-ZombiesDubbing }
+                    "3" { Install-ZombiesText }
+                    "0" { }
+                    default { Write-Warn (T 'invalid') }
+                }
             }
             "2" {
                 Write-Warn (T 'coming_soon')
