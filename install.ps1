@@ -378,6 +378,16 @@ function T {
             pt = "Dublagem removida!"
             es = "Doblaje eliminado!"
         }
+        "launcher_restore_fail" = @{
+            en = "Could not restore launcher. Run Plutonium updater to fix."
+            pt = "Nao foi possivel restaurar o launcher. Execute o atualizador do Plutonium para corrigir."
+            es = "No se pudo restaurar el launcher. Ejecute el actualizador de Plutonium para corregirlo."
+        }
+        "launcher_still_needed" = @{
+            en = "Launcher kept active (dubbing still installed)"
+            pt = "Launcher mantido ativo (dublagem ainda instalada)"
+            es = "Launcher mantenido activo (doblaje aun instalado)"
+        }
     }
 
     $entry = $translations[$Key]
@@ -890,27 +900,28 @@ function Restore-Launcher {
     $jsPath = Get-LauncherJsPath
     if (-not $jsPath) { return $false }
 
-    # Try backup restore first
+    # Opcao 1: restaurar do backup (.bak criado na instalacao)
     $bakPath = "$jsPath.bak"
     if (Test-Path $bakPath) {
         try {
             Copy-Item -Path $bakPath -Destination $jsPath -Force
+            Remove-Item $bakPath -Force -ErrorAction SilentlyContinue
             return $true
         } catch { }
     }
 
-    # No backup — remove our patch from the content
+    # Opcao 2: reverter manualmente o patch no conteudo atual
     try {
         $content = [System.IO.File]::ReadAllText($jsPath)
-        # Restore the replacement back to original
-        $patched = '"t6zm"===this.game.tag?(t.lanMode?"-lan +set fs_game mods/zm_ptbr":"+set fs_game mods/zm_ptbr"):(t.lanMode?"-lan":"")'
+        $patched  = '"t6zm"===this.game.tag?(t.lanMode?"-lan +set fs_game mods/zm_ptbr":"+set fs_game mods/zm_ptbr"):(t.lanMode?"-lan":"")'
         $original = '"t6zm"===this.game.tag?(t.lanMode?"-lan":""):""'
-
         if ($content.Contains($patched)) {
             $content = $content.Replace($patched, $original)
             [System.IO.File]::WriteAllText($jsPath, $content)
             return $true
         }
+        # Ja esta limpo (sem patch) - considera sucesso
+        if (-not ($content -match 'fs_game')) { return $true }
     } catch { }
 
     return $false
@@ -1034,8 +1045,18 @@ function Show-UninstallMenu {
             $t6 = Get-T6StoragePath
             Write-C ""; Write-Info (T 'removing'); Write-C ""
             Remove-TextFiles -t6Path $t6
-            if (Test-PlutoniumRunning) { Stop-PlutoniumLauncher }
-            if (Restore-Launcher) { Write-OK (T 'launcher_restored') }
+            # Só restaura o launcher se a dublagem também NÃO estiver instalada
+            # (launcher aponta para mods/zm_ptbr — se ainda tiver audio lá, precisa continuar)
+            if (-not (Test-ZombiesDubbingInstalled)) {
+                if (Test-PlutoniumRunning) { Stop-PlutoniumLauncher }
+                if (Restore-Launcher) {
+                    Write-OK (T 'launcher_restored')
+                } else {
+                    Write-Warn (T 'launcher_restore_fail')
+                }
+            } else {
+                Write-Info (T 'launcher_still_needed')
+            }
             Write-C ""; Write-OK (T 'removed_text_ok')
         }
         "2" {
@@ -1051,6 +1072,17 @@ function Show-UninstallMenu {
             $t6 = Get-T6StoragePath
             Write-C ""; Write-Info (T 'removing'); Write-C ""
             Remove-DubbingFiles -t6Path $t6
+            # Só restaura o launcher se os textos também NÃO estiverem instalados
+            if (-not (Test-ZombiesTextInstalled)) {
+                if (Test-PlutoniumRunning) { Stop-PlutoniumLauncher }
+                if (Restore-Launcher) {
+                    Write-OK (T 'launcher_restored')
+                } else {
+                    Write-Warn (T 'launcher_restore_fail')
+                }
+            } else {
+                Write-Info (T 'launcher_still_needed')
+            }
             Write-C ""; Write-OK (T 'removed_dub_ok')
         }
         "3" {
@@ -1063,7 +1095,11 @@ function Show-UninstallMenu {
             Remove-TextFiles    -t6Path $t6
             Remove-DubbingFiles -t6Path $t6
             if (Test-PlutoniumRunning) { Stop-PlutoniumLauncher }
-            if (Restore-Launcher) { Write-OK (T 'launcher_restored') }
+            if (Restore-Launcher) {
+                Write-OK (T 'launcher_restored')
+            } else {
+                Write-Warn (T 'launcher_restore_fail')
+            }
             Write-C ""; Write-OK (T 'removed_ok')
         }
         "0" { return }
