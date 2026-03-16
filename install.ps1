@@ -323,6 +323,61 @@ function T {
             pt = "Plutonium Launcher esta rodando. Fechando..."
             es = "Plutonium Launcher esta ejecutandose. Cerrando..."
         }
+        "status_bo2" = @{
+            en = "Black Ops 2 Files"
+            pt = "Arquivos Black Ops 2"
+            es = "Archivos Black Ops 2"
+        }
+        "bo2_not_found" = @{
+            en = "Black Ops 2 game files NOT FOUND!"
+            pt = "Arquivos do Black Ops 2 NAO ENCONTRADOS!"
+            es = "Archivos del Black Ops 2 NO ENCONTRADOS!"
+        }
+        "uninstall_menu_title" = @{
+            en = "What do you want to remove?"
+            pt = "O que voce quer remover?"
+            es = "Que desea eliminar?"
+        }
+        "uninstall_opt_text" = @{
+            en = "Remove PT-BR Text (menus, HUD, hints)"
+            pt = "Remover Textos PT-BR (menus, HUD, dicas)"
+            es = "Eliminar Textos PT-BR (menus, HUD, pistas)"
+        }
+        "uninstall_opt_dub" = @{
+            en = "Remove PT-BR Dubbing (audio) [Em Breve]"
+            pt = "Remover Dublagem PT-BR (audio) [Em Breve]"
+            es = "Eliminar Doblaje PT-BR (audio) [Proximamente]"
+        }
+        "uninstall_opt_all" = @{
+            en = "Remove Everything (text + dubbing)"
+            pt = "Remover Tudo (textos + dublagem)"
+            es = "Eliminar Todo (textos + doblaje)"
+        }
+        "nothing_to_remove" = @{
+            en = "Nothing to remove. The mod is not installed."
+            pt = "Nada para remover. O mod nao esta instalado."
+            es = "Nada para eliminar. El mod no esta instalado."
+        }
+        "dub_not_installed" = @{
+            en = "Dubbing is not installed."
+            pt = "A dublagem nao esta instalada."
+            es = "El doblaje no esta instalado."
+        }
+        "text_not_installed" = @{
+            en = "Texts are not installed."
+            pt = "Os textos nao estao instalados."
+            es = "Los textos no estan instalados."
+        }
+        "removed_text_ok" = @{
+            en = "Text translation removed!"
+            pt = "Traducao de textos removida!"
+            es = "Traduccion de textos eliminada!"
+        }
+        "removed_dub_ok" = @{
+            en = "Dubbing removed!"
+            pt = "Dublagem removida!"
+            es = "Doblaje eliminado!"
+        }
     }
 
     $entry = $translations[$Key]
@@ -514,6 +569,74 @@ function Get-T6StoragePath {
     return $null
 }
 
+function Test-BO2Path {
+    param([string]$Path)
+    if (-not $Path -or -not (Test-Path $Path)) { return $false }
+    # t6zm.exe = Zombies, t6mp.exe = Multiplayer, BlackOpsII.exe = Steam
+    return ((Test-Path (Join-Path $Path "t6zm.exe")) -or
+            (Test-Path (Join-Path $Path "t6mp.exe")) -or
+            (Test-Path (Join-Path $Path "BlackOpsII.exe")))
+}
+
+function Get-BO2GamePath {
+    # Fonte 1: config.json do Plutonium (mais confiável — é o que o launcher usa)
+    $plutoPath = Find-PlutoniumPath
+    if ($plutoPath) {
+        $configFile = Join-Path $plutoPath "config.json"
+        if (Test-Path $configFile) {
+            try {
+                $json = Get-Content $configFile -Raw -ErrorAction Stop | ConvertFrom-Json
+                $t6p = $json.t6Path
+                if ($t6p -and (Test-BO2Path $t6p)) { return $t6p }
+            } catch { }
+        }
+    }
+
+    # Fonte 2: Registro Steam (AppID 202990)
+    $steamRegs = @(
+        "HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 202990",
+        "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 202990"
+    )
+    foreach ($reg in $steamRegs) {
+        try {
+            if (Test-Path $reg) {
+                $loc = (Get-ItemProperty $reg -ErrorAction SilentlyContinue).InstallLocation
+                if (Test-BO2Path $loc) { return $loc }
+            }
+        } catch { }
+    }
+
+    # Fonte 3: libraryfolders.vdf de todas as bibliotecas Steam
+    try {
+        $steamPath = (Get-ItemProperty "HKCU:\SOFTWARE\Valve\Steam" -ErrorAction SilentlyContinue).SteamPath
+        if ($steamPath) {
+            $steamPath = $steamPath -replace '/', '\'
+            $vdfPath = Join-Path $steamPath "steamapps\libraryfolders.vdf"
+            if (Test-Path $vdfPath) {
+                $vdf = Get-Content $vdfPath -Raw -ErrorAction SilentlyContinue
+                $libPaths = [regex]::Matches($vdf, '"path"\s+"([^"]+)"') |
+                    ForEach-Object { ($_.Groups[1].Value) -replace '\\\\', '\' }
+                $libPaths += $steamPath
+                foreach ($lib in $libPaths) {
+                    $candidate = Join-Path $lib "steamapps\common\Call of Duty Black Ops II"
+                    if (Test-BO2Path $candidate) { return $candidate }
+                }
+            }
+        }
+    } catch { }
+
+    # Fonte 4: Varredura em todas as unidades
+    $drives = (Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -match '^[A-Z]:\\$' }).Root
+    $steamSubs = @("SteamLibrary", "Steam", "Program Files (x86)\Steam", "Games\Steam")
+    foreach ($drive in $drives) {
+        foreach ($sub in $steamSubs) {
+            $candidate = Join-Path $drive "$sub\steamapps\common\Call of Duty Black Ops II"
+            if (Test-BO2Path $candidate) { return $candidate }
+        }
+    }
+
+    return $null
+}
 function Get-LauncherJsPath {
     $plutoPath = Find-PlutoniumPath
     if (-not $plutoPath) { return $null }
@@ -796,87 +919,157 @@ function Restore-Launcher {
 # ============================================================================
 # Uninstall
 # ============================================================================
-function Uninstall-Mod {
-    $t6Path = Get-T6StoragePath
+function Remove-TextFiles {
+    param([string]$t6Path)
+    $removedAny = $false
 
-    if (-not $t6Path) {
-        Write-Err (T 'pluto_not_found')
-        Wait-Enter
-        return
-    }
-
-    if (-not (Test-ZombiesTextInstalled) -and -not (Test-LauncherPatched)) {
-        Write-Info (T 'status_not_installed')
-        Wait-Enter
-        return
-    }
-
-    # Confirm
-    Write-C ""
-    Write-Warn (T 'confirm_uninstall')
-    Write-C "  " -NoNewline
-    $confirm = Read-Host
-    if ($confirm -notmatch '^[SsYy]') {
-        Write-Info (T 'uninstall_cancelled')
-        Wait-Enter
-        return
-    }
-
-    Write-C ""
-    Write-Info (T 'removing')
-    Write-C ""
-
-    # Remove mod directory
+    # mod.ff principal
     $modDir = Join-Path $t6Path "mods\zm_ptbr"
     if (Test-Path $modDir) {
-        try {
-            Remove-Item $modDir -Recurse -Force
-            Write-OK "mods\zm_ptbr\"
-        } catch {
-            Write-Warn "Failed: mods\zm_ptbr\"
+        # Remover apenas arquivos de textos, preservar sabl/sabs de dublagem
+        $textFiles = @("mod.ff", "mod.json")
+        foreach ($f in $textFiles) {
+            $fp = Join-Path $modDir $f
+            if (Test-Path $fp) {
+                try { Remove-Item $fp -Force; Write-OK "mods\zm_ptbr\$f"; $removedAny = $true } catch { Write-Warn "Falha: mods\zm_ptbr\$f" }
+            }
+        }
+        # Remover pastas de build/source se existirem
+        foreach ($sub in @("zone_source", "raw", "zone_out")) {
+            $sp = Join-Path $modDir $sub
+            if (Test-Path $sp) {
+                try { Remove-Item $sp -Recurse -Force; Write-OK "mods\zm_ptbr\$sub\"; $removedAny = $true } catch { }
+            }
+        }
+        # Se mod dir ficar vazio (sem dubbing), remove inteiro
+        $remaining = Get-ChildItem $modDir -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in @('.sabl','.sabs') }
+        if ($remaining.Count -eq 0) {
+            try { Remove-Item $modDir -Recurse -Force -ErrorAction SilentlyContinue } catch { }
         }
     }
 
-    # Remove Lua files
-    $luaPaths = @(
-        "raw\ui\t6\PTBR.lua",
-        "raw\ui_mp\t6\PTBR.lua",
-        "raw\ui_mp\t6\hud\PTBR.lua"
-    )
+    # Arquivos Lua
+    $luaPaths = @("raw\ui\t6\PTBR.lua","raw\ui_mp\t6\PTBR.lua","raw\ui_mp\t6\hud\PTBR.lua")
     foreach ($luaRel in $luaPaths) {
         $luaFull = Join-Path $t6Path $luaRel
         if (Test-Path $luaFull) {
-            try {
-                Remove-Item $luaFull -Force
-                Write-OK $luaRel
-            } catch {
-                Write-Warn "Failed: $luaRel"
-            }
+            try { Remove-Item $luaFull -Force; Write-OK $luaRel; $removedAny = $true } catch { Write-Warn "Falha: $luaRel" }
         }
     }
 
-    # Remove raw .str file
+    # Arquivo .str
     $strPath = Join-Path $t6Path "raw\english\localizedstrings\ptbr_mod.str"
     if (Test-Path $strPath) {
-        try {
-            Remove-Item $strPath -Force
-            Write-OK "raw\english\localizedstrings\ptbr_mod.str"
-        } catch {
-            Write-Warn "Failed: ptbr_mod.str"
-        }
+        try { Remove-Item $strPath -Force; Write-OK "raw\english\localizedstrings\ptbr_mod.str"; $removedAny = $true } catch { Write-Warn "Falha: ptbr_mod.str" }
     }
 
-    # Restore launcher
-    if (Test-PlutoniumRunning) {
-        Stop-PlutoniumLauncher
+    return $removedAny
+}
+
+function Remove-DubbingFiles {
+    param([string]$t6Path)
+    $removedAny = $false
+
+    $modDir = Join-Path $t6Path "mods\zm_ptbr"
+    if (-not (Test-Path $modDir)) { return $false }
+
+    $audioExts = @('.sabl', '.sabs')
+    $audioFiles = Get-ChildItem $modDir -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Extension -in $audioExts }
+
+    foreach ($af in $audioFiles) {
+        try { Remove-Item $af.FullName -Force; Write-OK "mods\zm_ptbr\$($af.Name) ($([math]::Round($af.Length/1MB,1)) MB)"; $removedAny = $true } catch { Write-Warn "Falha: $($af.Name)" }
     }
-    $restored = Restore-Launcher
-    if ($restored) {
-        Write-OK (T 'launcher_restored')
+
+    # Se mod dir ficar sem textos também, limpa
+    $remaining = Get-ChildItem $modDir -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -in @('mod.ff','mod.json') }
+    if ($remaining.Count -eq 0 -and $removedAny) {
+        try { Remove-Item $modDir -Recurse -Force -ErrorAction SilentlyContinue } catch { }
+    }
+
+    return $removedAny
+}
+
+function Show-UninstallMenu {
+    $textInstalled = Test-ZombiesTextInstalled
+    $dubInstalled  = Test-ZombiesDubbingInstalled
+    $launchPatched = Test-LauncherPatched
+
+    if (-not $textInstalled -and -not $dubInstalled -and -not $launchPatched) {
+        Write-Warn (T 'nothing_to_remove')
+        Wait-Enter
+        return
     }
 
     Write-C ""
-    Write-OK (T 'removed_ok')
+    Write-C "    $(T 'uninstall_menu_title')" Yellow
+    Write-C ""
+
+    $textTag = if ($textInstalled) { "" } else { " [$(T 'text_not_installed')]" }
+    $dubTag  = if ($dubInstalled)  { "" } else { " [$(T 'dub_not_installed')]" }
+
+    Write-C "    " -NoNewline; Write-C "[1]" Yellow  -NoNewline; Write-C " $(T 'uninstall_opt_text')$textTag"
+    Write-C "    " -NoNewline; Write-C "[2]" Yellow  -NoNewline; Write-C " $(T 'uninstall_opt_dub')$dubTag"
+    Write-C "    " -NoNewline; Write-C "[3]" Red     -NoNewline; Write-C " $(T 'uninstall_opt_all')"
+    Write-C "    " -NoNewline; Write-C "[0]" DarkGray -NoNewline; Write-C " $(T 'sub_0')"
+    Write-C ""
+    Write-Line
+    Write-C ""
+    Write-C "  $(T 'choose'): " Cyan -NoNewline
+    $choice = Read-Host
+
+    Show-Banner
+
+    switch ($choice.Trim()) {
+        "1" {
+            if (-not $textInstalled) {
+                Write-Warn (T 'text_not_installed')
+                Wait-Enter
+                return
+            }
+            Write-Warn (T 'confirm_uninstall')
+            Write-C "  " -NoNewline
+            $c = Read-Host
+            if ($c -notmatch '^[SsYy]') { Write-Info (T 'uninstall_cancelled'); Wait-Enter; return }
+            $t6 = Get-T6StoragePath
+            Write-C ""; Write-Info (T 'removing'); Write-C ""
+            Remove-TextFiles -t6Path $t6
+            if (Test-PlutoniumRunning) { Stop-PlutoniumLauncher }
+            if (Restore-Launcher) { Write-OK (T 'launcher_restored') }
+            Write-C ""; Write-OK (T 'removed_text_ok')
+        }
+        "2" {
+            if (-not $dubInstalled) {
+                Write-Warn (T 'dub_not_installed')
+                Wait-Enter
+                return
+            }
+            Write-Warn (T 'confirm_uninstall')
+            Write-C "  " -NoNewline
+            $c = Read-Host
+            if ($c -notmatch '^[SsYy]') { Write-Info (T 'uninstall_cancelled'); Wait-Enter; return }
+            $t6 = Get-T6StoragePath
+            Write-C ""; Write-Info (T 'removing'); Write-C ""
+            Remove-DubbingFiles -t6Path $t6
+            Write-C ""; Write-OK (T 'removed_dub_ok')
+        }
+        "3" {
+            Write-Warn (T 'confirm_uninstall')
+            Write-C "  " -NoNewline
+            $c = Read-Host
+            if ($c -notmatch '^[SsYy]') { Write-Info (T 'uninstall_cancelled'); Wait-Enter; return }
+            $t6 = Get-T6StoragePath
+            Write-C ""; Write-Info (T 'removing'); Write-C ""
+            Remove-TextFiles    -t6Path $t6
+            Remove-DubbingFiles -t6Path $t6
+            if (Test-PlutoniumRunning) { Stop-PlutoniumLauncher }
+            if (Restore-Launcher) { Write-OK (T 'launcher_restored') }
+            Write-C ""; Write-OK (T 'removed_ok')
+        }
+        "0" { return }
+        default { Write-Warn (T 'invalid') }
+    }
+
     Wait-Enter
 }
 
@@ -899,7 +1092,17 @@ function Show-Status {
         Write-C (T 'status_not_installed') Red
     }
 
-    # T6 Storage
+    # BO2 game files
+    $bo2Path = Get-BO2GamePath
+    Write-C "  $(T 'status_bo2'):  " -NoNewline
+    if ($bo2Path) {
+        Write-C (T 'status_installed') Green
+        Write-C "                         $bo2Path" DarkGray
+    } else {
+        Write-C (T 'bo2_not_found') Red
+    }
+
+    # T6 Storage (Plutonium knows where BO2 is)
     $t6Path = Get-T6StoragePath
     Write-C "  $(T 'status_t6'):     " -NoNewline
     if ($t6Path) {
@@ -1004,7 +1207,7 @@ function Start-MainLoop {
                 Write-Warn (T 'coming_soon')
                 Wait-Enter
             }
-            "4" { Uninstall-Mod }
+            "4" { Show-Banner; Show-UninstallMenu }
             "5" { Show-Status }
             "0" {
                 Write-C ""
