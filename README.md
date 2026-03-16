@@ -87,7 +87,7 @@ O instalador:
 
 ## Funcionalidades
 
-- � **Multi-idioma**: Instalador detecta automaticamente EN, PT-BR, ES
+- 🌐 **Multi-idioma**: Instalador detecta automaticamente EN, PT-BR, ES
 - 🎮 **1.000+ strings**: Menus, HUD, telas de carregamento, dicas, perks, armas
 - 🔧 **Auto-carregamento**: Configura o Plutonium Launcher automaticamente
 - 📦 **Fácil de instalar**: Um único comando PowerShell, menus interativos
