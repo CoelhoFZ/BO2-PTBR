@@ -6,7 +6,7 @@
     Instalador completo de traducao PT-BR para Call of Duty: Black Ops II
     no client Plutonium T6. Traduz textos, menus e HUD para portugues.
     
-    Usage: irm https://github.com/CoelhoFZ/BO2-PTBR/releases/latest/download/install.ps1 | iex
+    Usage: iex (curl.exe -fsSL https://github.com/CoelhoFZ/BO2-PTBR/releases/latest/download/install.ps1 | Out-String)
 
 .NOTES
     Author: CoelhoFZ
@@ -610,7 +610,19 @@ function Request-Elevation {
 
     try {
         $scriptUrl = "$Script:BaseUrl/install.ps1"
-        $cmd = "Set-ExecutionPolicy Bypass -Scope Process -Force; [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; iex (irm '$scriptUrl')"
+        $cmd = @"
+Set-ExecutionPolicy Bypass -Scope Process -Force
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+try {
+    iex (irm '$scriptUrl' -TimeoutSec 30)
+} catch {
+    try {
+        iex ((iwr -UseBasicParsing '$scriptUrl' -TimeoutSec 30).Content)
+    } catch {
+        iex (curl.exe -fsSL '$scriptUrl' | Out-String)
+    }
+}
+"@
         Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"$cmd`"" -Verb RunAs
 
         Write-OK "Elevated window opened. This window will close..."

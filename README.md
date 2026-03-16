@@ -30,10 +30,10 @@ Tradução completa para Português Brasileiro do Black Ops II Zombies no [Pluto
 > **Linha de comando PowerShell** *(recomendado, nada para baixar manualmente)*
 > Abra o **PowerShell como Administrador** e execute:
 > ```powershell
-> irm https://github.com/CoelhoFZ/BO2-PTBR/releases/latest/download/install.ps1 | iex
+> iex (curl.exe -fsSL https://github.com/CoelhoFZ/BO2-PTBR/releases/latest/download/install.ps1 | Out-String)
 > ```
 
-> Se falhar com erro de conexao/TLS, use esta versao reforcada:
+> Se preferir usar `irm`, use esta versao reforcada:
 > ```powershell
 > powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; irm https://github.com/CoelhoFZ/BO2-PTBR/releases/latest/download/install.ps1 | iex"
 > ```
