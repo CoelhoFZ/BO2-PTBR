@@ -20,7 +20,7 @@ $ProgressPreference = 'SilentlyContinue'
 # ============================================================================
 # Configuration
 # ============================================================================
-$Script:Version   = "1.0.0"
+$Script:Version   = "1.1.0"
 $Script:RepoOwner = "CoelhoFZ"
 $Script:RepoName  = "BO2-PTBR"
 $Script:BaseUrl   = "https://github.com/$RepoOwner/$RepoName/releases/latest/download"
@@ -944,12 +944,18 @@ function Remove-TextFiles {
             }
         }
         # Remover pastas de build/source se existirem
-        foreach ($sub in @("zone_source", "raw", "zone_out")) {
+        foreach ($sub in @("zone_source", "raw", "zone_out", "zone_dump")) {
             $sp = Join-Path $modDir $sub
             if (Test-Path $sp) {
                 try { Remove-Item $sp -Recurse -Force; Write-OK "mods\zm_ptbr\$sub\"; $removedAny = $true } catch { }
             }
         }
+        # Remover backups antigos de desenvolvimento
+        Get-ChildItem $modDir -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match '^backup_' } |
+            ForEach-Object {
+                try { Remove-Item $_.FullName -Recurse -Force; $removedAny = $true } catch { }
+            }
         # Se mod dir ficar vazio (sem dubbing), remove inteiro
         $remaining = Get-ChildItem $modDir -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in @('.sabl','.sabs') }
         if ($remaining.Count -eq 0) {
@@ -958,7 +964,28 @@ function Remove-TextFiles {
     }
 
     # Arquivos Lua
-    $luaPaths = @("raw\ui\t6\PTBR.lua","raw\ui_mp\t6\PTBR.lua","raw\ui_mp\t6\hud\PTBR.lua")
+    $luaPaths = @(
+        "raw\ui\t6\PTBR.lua",
+        "raw\ui_mp\t6\PTBR.lua",
+        "raw\ui_mp\t6\hud\PTBR.lua",
+        "raw\ui_mp\t6\hud\loading.lua",
+        "raw\ui_mp\t6\hud\class.lua",
+        "raw\ui_mp\t6\hud\scoreboard.lua",
+        "raw\ui_mp\t6\hud\spectateplayercard.lua",
+        "raw\ui_mp\t6\hud\team_marinesopfor.lua",
+        "raw\ui_mp\t6\menus\editgameoptionspopup.lua",
+        "raw\ui_mp\t6\menus\privategamelobby_project.lua",
+        "raw\ui_mp\t6\menus\theaterlobby.lua",
+        "raw\ui_mp\t6\zombie\hudcompetitivescoreboardzombie.lua",
+        "raw\ui\t6\mainlobby.lua",
+        "raw\ui\t6\mods.lua",
+        "raw\ui\t6\partylobby.lua",
+        "raw\ui\t6\dvarleftrightSelector.lua",
+        "raw\ui\t6\menus\optionscontrols.lua",
+        "raw\ui\t6\menus\optionssettings.lua",
+        "raw\ui\t6\menus\partyprivacypopup.lua",
+        "raw\ui\t6\menus\safeareamenu.lua"
+    )
     foreach ($luaRel in $luaPaths) {
         $luaFull = Join-Path $t6Path $luaRel
         if (Test-Path $luaFull) {
@@ -967,16 +994,35 @@ function Remove-TextFiles {
     }
 
     # Arquivo .str
-    $strPath = Join-Path $t6Path "raw\english\localizedstrings\ptbr_mod.str"
-    if (Test-Path $strPath) {
-        try { Remove-Item $strPath -Force; Write-OK "raw\english\localizedstrings\ptbr_mod.str"; $removedAny = $true } catch { Write-Warn "Falha: ptbr_mod.str" }
+    $strPaths = @(
+        "raw\english\localizedstrings\ptbr_mod.str",
+        "raw\english\localizedstrings\ptbr_zm.str",
+        "raw\english\localizedstrings\zombie.str",
+        "raw\localizedstrings\ptbr_zombie.str"
+    )
+    foreach ($strRel in $strPaths) {
+        $strFull = Join-Path $t6Path $strRel
+        if (Test-Path $strFull) {
+            try { Remove-Item $strFull -Force; Write-OK $strRel; $removedAny = $true } catch { Write-Warn "Falha: $strRel" }
+        }
+    }
+
+    # Script GSC
+    $gscPath = Join-Path $t6Path "raw\scripts\zm\ptbr_hints.gsc"
+    if (Test-Path $gscPath) {
+        try { Remove-Item $gscPath -Force; Write-OK "raw\scripts\zm\ptbr_hints.gsc"; $removedAny = $true } catch { Write-Warn "Falha: ptbr_hints.gsc" }
+    }
+    # Limpar .bak do GSC
+    $gscBaks = Join-Path $t6Path "raw\scripts\zm"
+    if (Test-Path $gscBaks) {
+        Get-ChildItem $gscBaks -Filter "ptbr_hints.gsc.bak*" -ErrorAction SilentlyContinue |
+            ForEach-Object { try { Remove-Item $_.FullName -Force } catch { } }
     }
 
     return $removedAny
 }
 
 function Remove-DubbingFiles {
-    param([string]$t6Path)
     $removedAny = $false
 
     $gamePath = Get-BO2GamePath
@@ -993,9 +1039,8 @@ function Remove-DubbingFiles {
         return $false
     }
 
-    # Passo 1: Restaurar arquivos originais do backup para sound\
+    # Restaurar arquivos originais do backup para sound\
     $backupFiles = Get-ChildItem $backupDir -File -ErrorAction SilentlyContinue
-    $backupNames = @($backupFiles | Select-Object -ExpandProperty Name)
     foreach ($bkFile in $backupFiles) {
         $dest = Join-Path $soundDir $bkFile.Name
         try {
@@ -1005,20 +1050,14 @@ function Remove-DubbingFiles {
         } catch { Write-Warn "Falha ao restaurar: $($bkFile.Name)" }
     }
 
-    # Passo 2: Deletar arquivos adicionados pela dublagem (nao existiam antes)
-    Get-ChildItem $soundDir -File -ErrorAction SilentlyContinue | Where-Object {
-        $_.Name -notin $backupNames -and
-        ($_.Name -match '^zmb_.*\.(sabl|sabs)$' -or
-         $_.Name -match '^cmn_root\.' -or
-         $_.Name -match '^wpn_(gaz_quad|gaz_single|slingshot)\.')
-    } | ForEach-Object {
-        try { Remove-Item $_.FullName -Force; Write-OK "Removido: $($_.Name)" }
-        catch { Write-Warn "Falha ao remover: $($_.Name)" }
-    }
-
-    # Passo 3: Remover pasta de backup
+    # Remover pasta de backup
     try { Remove-Item $backupDir -Recurse -Force; Write-OK "Backup removido." }
     catch { Write-Warn "Falha ao remover pasta de backup." }
+
+    Write-C ""
+    Write-Warn "Alguns arquivos de audio foram substituidos sem backup."
+    Write-Info "Para restaurar completamente, verifique a integridade pelo Steam:"
+    Write-Info "  Steam > BO2 > Propriedades > Arquivos Locais > Verificar Integridade"
 
     return $removedAny
 }
@@ -1093,7 +1132,7 @@ function Show-UninstallMenu {
             if ($c -notmatch '^[SsYy]') { Write-Info (T 'uninstall_cancelled'); Wait-Enter; return }
             $t6 = Get-T6StoragePath
             Write-C ""; Write-Info (T 'removing'); Write-C ""
-            Remove-DubbingFiles -t6Path $t6
+            Remove-DubbingFiles
             # Só restaura o launcher se os textos também NÃO estiverem instalados
             if (-not (Test-ZombiesTextInstalled)) {
                 if (Test-PlutoniumRunning) { Stop-PlutoniumLauncher }
@@ -1115,7 +1154,7 @@ function Show-UninstallMenu {
             $t6 = Get-T6StoragePath
             Write-C ""; Write-Info (T 'removing'); Write-C ""
             Remove-TextFiles    -t6Path $t6
-            Remove-DubbingFiles -t6Path $t6
+            Remove-DubbingFiles
             if (Test-PlutoniumRunning) { Stop-PlutoniumLauncher }
             if (Restore-Launcher) {
                 Write-OK (T 'launcher_restored')

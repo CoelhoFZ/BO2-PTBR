@@ -15,7 +15,7 @@
   </a>
 </p>
 
-> **�🇷 Tradução completa PT-BR para Call of Duty: Black Ops II no Plutonium T6!**
+> **🌍 Tradução completa PT-BR para Call of Duty: Black Ops II no Plutonium T6!**
 
 **Black Ops 2 PT-BR** | **BO2 tradução** | **Plutonium T6 português** | **BO2 em português** | **Black Ops 2 traduzido** | **Como traduzir BO2**
 
@@ -52,11 +52,12 @@ Tradução completa para Português Brasileiro do Black Ops II Zombies no [Pluto
 ## O que o Script Faz
 
 O instalador:
-1. Solicita privilégios de Administrador se necessário
-2. Encontra sua instalação do Plutonium automaticamente
-3. Baixa e instala os arquivos de tradução
-4. Configura o Plutonium Launcher para carregar o mod automaticamente ao iniciar Zombies
-5. Oferece opção de desinstalação completa
+1. Detecta seu idioma automaticamente (PT-BR, EN, ES)
+2. Solicita privilégios de Administrador se necessário
+3. Encontra sua instalação do Plutonium
+4. Baixa e instala os arquivos de tradução
+5. Configura o Plutonium Launcher para auto-carregamento
+6. Oferece desinstalação limpa
 
 ## Menu Interativo
 
@@ -86,10 +87,12 @@ O instalador:
 
 ## Funcionalidades
 
+- � **Multi-idioma**: Instalador detecta automaticamente EN, PT-BR, ES
 - 🎮 **1.000+ strings**: Menus, HUD, telas de carregamento, dicas, perks, armas
-- 🔧 **Auto-carregamento**: Configura o Plutonium Launcher para iniciar Zombies já com PT-BR
-- 📦 **Fácil de instalar**: Um único comando PowerShell, menu interativo
-- 🗑️ **Remoção limpa**: Remove todos os arquivos e restaura o launcher ao estado original
+- 🔧 **Auto-carregamento**: Configura o Plutonium Launcher automaticamente
+- 📦 **Fácil de instalar**: Um único comando PowerShell, menus interativos
+- 🗑️ **Desinstalação limpa**: Remove todos os arquivos e restaura o launcher
+- 🔄 **Suporte a reinstalação**: Detecta instalação existente
 
 ## Cobertura da Tradução
 

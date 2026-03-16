@@ -1,0 +1,18 @@
+# Backups
+*.bak
+*.bak.*
+backup_*/
+sound_backup_original/
+
+# Build artifacts
+zone_dump/
+*.tmp
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
