@@ -10,7 +10,7 @@
 
 .NOTES
     Author: CoelhoFZ
-    Version: 1.3.0
+    Version: 1.3.1
     Repository: https://github.com/CoelhoFZ/BO2-PTBR
 #>
 
@@ -27,7 +27,7 @@ $ProgressPreference = 'SilentlyContinue'
 # ============================================================================
 # Configuration
 # ============================================================================
-$Script:Version   = "1.3.0"
+$Script:Version   = "1.3.1"
 $Script:RepoOwner = "CoelhoFZ"
 $Script:RepoName  = "BO2-PTBR"
 $Script:BaseUrl   = "https://github.com/$RepoOwner/$RepoName/releases/latest/download"
@@ -822,6 +822,63 @@ function Test-ZombiesDubbingInstalled {
     return ($present -ge 4)
 }
 
+function Remove-LegacyGlobalTextFiles {
+    param([string]$t6Path)
+
+    $removedAny = $false
+
+    $legacyPaths = @(
+        "raw\ui\t6\PTBR.lua",
+        "raw\ui_mp\t6\PTBR.lua",
+        "raw\ui_mp\t6\hud\PTBR.lua",
+        "raw\ui_mp\t6\hud\loading.lua",
+        "raw\ui_mp\t6\hud\class.lua",
+        "raw\ui_mp\t6\hud\scoreboard.lua",
+        "raw\ui_mp\t6\hud\spectateplayercard.lua",
+        "raw\ui_mp\t6\hud\team_marinesopfor.lua",
+        "raw\ui_mp\t6\menus\editgameoptionspopup.lua",
+        "raw\ui_mp\t6\menus\privategamelobby_project.lua",
+        "raw\ui_mp\t6\menus\theaterlobby.lua",
+        "raw\ui_mp\t6\zombie\hudcompetitivescoreboardzombie.lua",
+        "raw\ui\t6\mainlobby.lua",
+        "raw\ui\t6\mods.lua",
+        "raw\ui\t6\partylobby.lua",
+        "raw\ui\t6\dvarleftrightSelector.lua",
+        "raw\ui\t6\menus\optionscontrols.lua",
+        "raw\ui\t6\menus\optionssettings.lua",
+        "raw\ui\t6\menus\partyprivacypopup.lua",
+        "raw\ui\t6\menus\safeareamenu.lua",
+        "raw\english\localizedstrings\ptbr_mod.str",
+        "raw\english\localizedstrings\ptbr_zm.str",
+        "raw\english\localizedstrings\zombie.str",
+        "raw\english\localizedstrings\zombie.str.bak",
+        "raw\localizedstrings\ptbr_zombie.str",
+        "raw\scripts\zm\ptbr_hints.gsc",
+        "raw\scripts\zm\ptbr_localization.gsc.bak_disabled",
+        "raw\scripts\zm\ptbr_lua_zombie_keys.txt",
+        "raw\scripts\zm\zombie_keys_raw.txt",
+        "raw\ui_mp\t6\PTBR.lua.bak28",
+        "raw\ui_mp\t6\PTBR.lua.bak29"
+    )
+
+    foreach ($rel in $legacyPaths) {
+        $full = Join-Path $t6Path $rel
+        if (Test-Path $full) {
+            try { Remove-Item $full -Force; $removedAny = $true } catch { }
+        }
+    }
+
+    $gscBakDir = Join-Path $t6Path "raw\scripts\zm"
+    if (Test-Path $gscBakDir) {
+        Get-ChildItem $gscBakDir -Filter "ptbr_hints*.bak*" -ErrorAction SilentlyContinue |
+            ForEach-Object {
+                try { Remove-Item $_.FullName -Force; $removedAny = $true } catch { }
+            }
+    }
+
+    return $removedAny
+}
+
 function Test-LauncherPatched {
     $jsPath = Get-LauncherJsPath
     if (-not $jsPath) { return $false }
@@ -1059,9 +1116,9 @@ function Install-ZombiesText {
         if (-not (Test-Path $modsDir)) {
             New-Item -Path $modsDir -ItemType Directory -Force | Out-Null
         }
-        $rawDir = Join-Path $t6Path "raw"
-        if (-not (Test-Path $rawDir)) {
-            New-Item -Path $rawDir -ItemType Directory -Force | Out-Null
+        $modRawDir = Join-Path $modsDir "raw"
+        if (-not (Test-Path $modRawDir)) {
+            New-Item -Path $modRawDir -ItemType Directory -Force | Out-Null
         }
 
         # Copy all extracted contents preserving structure
@@ -1070,9 +1127,11 @@ function Install-ZombiesText {
             Write-OK "mods\zm_ptbr\"
         }
         if (Test-Path (Join-Path $tempExtract "raw")) {
-            Copy-Item -Path (Join-Path $tempExtract "raw\*") -Destination $rawDir -Recurse -Force
-            Write-OK "raw\ (Lua + .str)"
+            Copy-Item -Path (Join-Path $tempExtract "raw\*") -Destination $modRawDir -Recurse -Force
+            Write-OK "mods\zm_ptbr\raw\ (Lua + .str + GSC)"
         }
+
+        [void](Remove-LegacyGlobalTextFiles -t6Path $t6Path)
 
         # Cleanup temp
         Remove-Item $tempZip -Force -ErrorAction SilentlyContinue

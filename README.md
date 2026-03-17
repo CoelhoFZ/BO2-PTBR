@@ -19,7 +19,7 @@
 
 **Black Ops 2 PT-BR** | **BO2 tradução** | **Plutonium T6 português** | **BO2 em português** | **Black Ops 2 traduzido** | **Como traduzir BO2**
 
-Tradução completa para Português Brasileiro do Black Ops II Zombies no [Plutonium T6](https://plutonium.pw). Traduz menus, HUD, telas de carregamento, dicas e textos do jogo — mais de **1.000 strings traduzidas**.
+Tradução completa para Português Brasileiro do Black Ops II Zombies no [Plutonium T6](https://plutonium.pw). Traduz menus, HUD, telas de carregamento, dicas e textos do jogo — mais de **2.300 strings traduzidas**.
 
 > ⚠️ **Aviso**: Este projeto é um mod de tradução feito por fãs. Ele modifica apenas elementos de texto/UI. Por favor, apoie os desenvolvedores comprando o jogo original.
 
@@ -84,7 +84,7 @@ O instalador:
 2. Solicita privilégios de Administrador se necessário
 3. Encontra sua instalação do Plutonium
 4. Baixa e instala os arquivos de tradução
-5. Configura o Plutonium Launcher para auto-carregamento
+5. Configura o Plutonium Launcher para auto-carregamento do mod
 6. Oferece desinstalação limpa
 
 ## Menu Interativo
@@ -116,7 +116,7 @@ O instalador:
 ## Funcionalidades
 
 - 🌐 **Multi-idioma**: Instalador detecta automaticamente EN, PT-BR, ES
-- 🎮 **1.000+ strings**: Menus, HUD, telas de carregamento, dicas, perks, armas
+- 🎮 **2.300+ strings**: Menus, HUD, telas de carregamento, dicas, perks, armas
 - 🔧 **Auto-carregamento**: Configura o Plutonium Launcher automaticamente
 - 📦 **Fácil de instalar**: Um único comando PowerShell, menus interativos
 - 🗑️ **Desinstalação limpa**: Remove todos os arquivos e restaura o launcher
@@ -147,7 +147,10 @@ O instalador:
 Se preferir instalar manualmente:
 
 1. Baixe o `textos_zm.zip` do [último release](https://github.com/CoelhoFZ/BO2-PTBR/releases/latest)
-2. Extraia em `%LOCALAPPDATA%\Plutonium\storage\t6\`
+2. Extraia o arquivo. O zip contém as pastas `mods/` e `raw/`:
+   - Copie o conteúdo de `mods/` para `%LOCALAPPDATA%\Plutonium\storage\t6\mods\`
+   - Copie o conteúdo de `raw/` para `%LOCALAPPDATA%\Plutonium\storage\t6\mods\zm_ptbr\raw\`
+   > **Atenção:** não extraia `raw/` direto na raiz do storage — todos os arquivos de tradução devem ficar dentro de `mods\zm_ptbr\raw\`, garantindo que só aparecem com o mod carregado.
 3. Adicione `+set fs_game mods/zm_ptbr` nos parâmetros de lançamento do Plutonium T6 Zombies
 
 ## Solução de Problemas
@@ -162,6 +165,7 @@ Se preferir instalar manualmente:
 
 ## Notas
 
+- Toda a tradução é carregada **exclusivamente via mod** (`+set fs_game mods/zm_ptbr`). Sem o mod ativo, nenhum texto PT-BR é aplicado — comportamento 100% vanilla.
 - O instalador detecta automaticamente o idioma do sistema (PT-BR, EN, ES).
 - As traduções em espanhol do instalador não utilizam acentos propositalmente, para compatibilidade máxima com consoles e terminais que não suportam caracteres especiais.
 - O script verifica automaticamente se há atualizações disponíveis ao iniciar.
