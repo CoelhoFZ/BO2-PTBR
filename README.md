@@ -166,6 +166,9 @@ Se preferir instalar manualmente:
 ## Notas
 
 - Toda a tradução é carregada **exclusivamente via mod** (`+set fs_game mods/zm_ptbr`). Sem o mod ativo, nenhum texto PT-BR é aplicado — comportamento 100% vanilla.
+- Os arquivos de texto ficam dentro de `mods\zm_ptbr`. O instalador tambem remove overrides globais legados em `storage\t6\raw`, para garantir que nenhum texto PT-BR apareca fora do mod carregado.
+- A dublagem e independente dos textos. Se voce remover **somente os textos**, a dublagem PT-BR continua instalada.
+- Para voltar a dublagem para ingles, execute o instalador novamente e escolha **Remover Traducao PT-BR** > **Somente Dublagem**, ou use a acao `UninstallDubbing`.
 - O instalador detecta automaticamente o idioma do sistema (PT-BR, EN, ES).
 - As traduções em espanhol do instalador não utilizam acentos propositalmente, para compatibilidade máxima com consoles e terminais que não suportam caracteres especiais.
 - O script verifica automaticamente se há atualizações disponíveis ao iniciar.
