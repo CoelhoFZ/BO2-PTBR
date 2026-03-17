@@ -699,6 +699,30 @@ function Test-BO2Path {
     param([string]$Path)
     if (-not $Path -or -not (Test-Path $Path)) { return $false }
     # t6zm.exe = Zombies, t6mp.exe = Multiplayer, BlackOpsII.exe = Steam
+
+function Sync-ModLuaLayout {
+    param([string]$modDir)
+
+    $rawDir = Join-Path $modDir "raw"
+    if (-not (Test-Path $rawDir)) {
+        return
+    }
+
+    foreach ($relativeDir in @("ui", "ui_mp")) {
+        $sourceDir = Join-Path $rawDir $relativeDir
+        if (-not (Test-Path $sourceDir)) {
+            continue
+        }
+
+        $targetDir = Join-Path $modDir $relativeDir
+        if (-not (Test-Path $targetDir)) {
+            New-Item -Path $targetDir -ItemType Directory -Force | Out-Null
+        }
+
+        Copy-Item -Path (Join-Path $sourceDir "*") -Destination $targetDir -Recurse -Force
+        Write-OK "mods\zm_ptbr\$relativeDir\ (espelho Lua para loader)"
+    }
+}
     return ((Test-Path (Join-Path $Path "t6zm.exe")) -or
             (Test-Path (Join-Path $Path "t6mp.exe")) -or
             (Test-Path (Join-Path $Path "BlackOpsII.exe")))
@@ -1131,6 +1155,8 @@ function Install-ZombiesText {
             Write-OK "mods\zm_ptbr\raw\ (Lua + .str + GSC)"
         }
 
+        Sync-ModLuaLayout -modDir $modsDir
+
         [void](Remove-LegacyGlobalTextFiles -t6Path $t6Path)
 
         # Cleanup temp
@@ -1423,7 +1449,7 @@ function Remove-TextFiles {
             }
         }
         # Remover pastas de build/source se existirem
-        foreach ($sub in @("zone_source", "raw", "zone_out", "zone_dump")) {
+        foreach ($sub in @("zone_source", "raw", "ui", "ui_mp", "zone_out", "zone_dump")) {
             $sp = Join-Path $modDir $sub
             if (Test-Path $sp) {
                 try { Remove-Item $sp -Recurse -Force; Write-OK "mods\zm_ptbr\$sub\"; $removedAny = $true } catch { }

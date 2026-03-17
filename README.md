@@ -148,9 +148,11 @@ Se preferir instalar manualmente:
 
 1. Baixe o `textos_zm.zip` do [último release](https://github.com/CoelhoFZ/BO2-PTBR/releases/latest)
 2. Extraia o arquivo. O zip contém as pastas `mods/` e `raw/`:
-   - Copie o conteúdo de `mods/` para `%LOCALAPPDATA%\Plutonium\storage\t6\mods\`
-   - Copie o conteúdo de `raw/` para `%LOCALAPPDATA%\Plutonium\storage\t6\mods\zm_ptbr\raw\`
-   > **Atenção:** não extraia `raw/` direto na raiz do storage — todos os arquivos de tradução devem ficar dentro de `mods\zm_ptbr\raw\`, garantindo que só aparecem com o mod carregado.
+  - Copie o conteúdo de `mods/` para `%LOCALAPPDATA%\Plutonium\storage\t6\mods\`
+  - Copie o conteúdo de `raw/` para `%LOCALAPPDATA%\Plutonium\storage\t6\mods\zm_ptbr\raw\`
+  - Copie também `raw\ui\` para `%LOCALAPPDATA%\Plutonium\storage\t6\mods\zm_ptbr\ui\`
+  - Copie também `raw\ui_mp\` para `%LOCALAPPDATA%\Plutonium\storage\t6\mods\zm_ptbr\ui_mp\`
+  > **Atenção:** não extraia `raw/` direto na raiz do storage. Os arquivos de tradução devem ficar dentro de `mods\zm_ptbr\raw\`, e os Lua de UI tambem precisam estar espelhados em `mods\zm_ptbr\ui\` e `mods\zm_ptbr\ui_mp\` para o loader do Plutonium resolver `require("T6.PTBR")` corretamente.
 3. Adicione `+set fs_game mods/zm_ptbr` nos parâmetros de lançamento do Plutonium T6 Zombies
 
 ## Solução de Problemas
@@ -166,7 +168,8 @@ Se preferir instalar manualmente:
 ## Notas
 
 - Toda a tradução é carregada **exclusivamente via mod** (`+set fs_game mods/zm_ptbr`). Sem o mod ativo, nenhum texto PT-BR é aplicado — comportamento 100% vanilla.
-- Os arquivos de texto ficam dentro de `mods\zm_ptbr`. O instalador tambem remove overrides globais legados em `storage\t6\raw`, para garantir que nenhum texto PT-BR apareca fora do mod carregado.
+- Os arquivos de texto ficam dentro de `mods\zm_ptbr`. O instalador tambem espelha os Lua de `raw\ui` e `raw\ui_mp` para `ui` e `ui_mp` na raiz do mod, porque o loader do frontend resolve esses modulos por esse caminho.
+- O instalador tambem remove overrides globais legados em `storage\t6\raw`, para garantir que nenhum texto PT-BR apareca fora do mod carregado.
 - A dublagem e independente dos textos. Se voce remover **somente os textos**, a dublagem PT-BR continua instalada.
 - Para voltar a dublagem para ingles, execute o instalador novamente e escolha **Remover Traducao PT-BR** > **Somente Dublagem**, ou use a acao `UninstallDubbing`.
 - O instalador detecta automaticamente o idioma do sistema (PT-BR, EN, ES).
